@@ -827,8 +827,8 @@ export default function FigJamBoard() {
 
   const handleSaveRowName = (rowId: string) => {
     const oldName = customRows.find(r => r.id === rowId)?.name;
-    const const updatedRows = (customRows.map(r =>r.id === rowId ? { ...r, name: editingRowName } : r;
-    set(ref(db, 'customRows'), updatedRows);
+const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRowName } : r);  
+      set(ref(db, 'customRows'), updatedRows);
     
     if (oldName) {
       const updatedProjects = projects.map(p => 
