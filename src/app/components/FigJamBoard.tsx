@@ -667,9 +667,9 @@ function EditableCard({
 }
 
 export default function FigJamBoard() {
-  const [projects, setProjects] = useState<ProjectCard[]>(initialProjects);
-  const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows);
-  const [teammates, setTeammates] = useState<Teammate[]>(initialTeammates);
+ const [projects, setProjects] = useState<ProjectCard[]>(initialProjects || []);
+ const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows || []);
+ const [teammates, setTeammates] = useState<Teammate[]>(initialTeammates || []);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingRowName, setEditingRowName] = useState('');
   const [showTeammatesManagementModal, setShowTeammatesManagementModal] = useState(false);
@@ -710,7 +710,7 @@ export default function FigJamBoard() {
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
       const data = snapshot.val() || [];
       if (data) {
-        setProjects(data);
+        setProjects(data || []);
       } else {
         // Initialize with default data if empty
         set(projectsRef, initialProjects);
@@ -721,7 +721,7 @@ export default function FigJamBoard() {
     const unsubscribeCustomRows = onValue(ref(db, "customRows"), (snapshot) => {
   setRows(snapshot.val() || []);
       if (data) {
-        setCustomRows(data);
+        setCustomRows(data || []);
       } else {
         set(customRowsRef, initialCustomRows);
       }
@@ -731,7 +731,7 @@ export default function FigJamBoard() {
     const unsubscribeTeammates = onValue(teammatesRef, (snapshot) => {
       const data = snapshot.val() || [];
       if (data) {
-        setTeammates(data);
+        setTeammates(data || []);
       } else {
         set(teammatesRef, initialTeammates);
       }
