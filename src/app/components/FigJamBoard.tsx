@@ -763,9 +763,8 @@ export default function FigJamBoard() {
       if (p.id === cardId) {
         return {
           ...p,
-        priority: "Medium",
-        category: isCustom ? "Medium" : undefined,
-
+          priority: "Medium",
+          category: isCustom ? "Medium" : undefined,
           lastModifiedBy: currentUser,
           lastModifiedAt: Date.now()
         };
