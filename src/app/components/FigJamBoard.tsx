@@ -391,7 +391,7 @@ function PriorityRow({
   priority: string; 
   isCustom: boolean; 
   projects: ProjectCard[]; 
-  onDrop: (cardId: string, priority,: string, isCustom: boolean) => void;
+  onDrop: (cardId: string, priority: string, isCustom: boolean) => void;
   children: React.ReactNode;
 }) {
   const [{ isOver }, drop] = useDrop(() => ({
