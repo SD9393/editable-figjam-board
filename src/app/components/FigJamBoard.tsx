@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
-import { GripVertical, Plus, X, Edit2, Check, Users, Calendar, Trash2, Mail, Bell, HelpCircle } from 'lucide-react';
+import { GripVertical, Plus, X, Edit2, Check, Users, Calendar, Trash2, Mail, Bell, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { db } from '@/config/firebase';
 import { ref, set, onValue, update } from 'firebase/database';
 
@@ -381,6 +381,72 @@ const teammateColors = [
   'bg-teal-500', 'bg-cyan-500', 'bg-lime-500', 'bg-amber-500'
 ];
 
+function SidebarProjectItem({ 
+  project, 
+  onDrop, 
+  onClick, 
+  isHighlighted 
+}: { 
+  project: ProjectCard; 
+  onDrop: (draggedId: string, targetId: string) => void;
+  onClick: () => void;
+  isHighlighted: boolean;
+}) {
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: 'sidebar-project',
+    item: { id: project.id },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  }));
+
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: 'sidebar-project',
+    drop: (item: { id: string }) => {
+      if (item.id !== project.id) {
+        onDrop(item.id, project.id);
+      }
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  }));
+
+  const priorityColorMap: Record<string, string> = {
+    P0: 'bg-red-500',
+    P1: 'bg-orange-500',
+    P2: 'bg-blue-500',
+    P3: 'bg-gray-500',
+    P4: 'bg-slate-500',
+  };
+
+  return (
+    <div
+      ref={(node) => drag(drop(node))}
+      onClick={onClick}
+      className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-all ${
+        isDragging ? 'opacity-50' : ''
+      } ${
+        isOver ? 'border-t-2 border-blue-500' : ''
+      } ${
+        isHighlighted ? 'bg-yellow-100 ring-2 ring-yellow-400' : 'hover:bg-gray-100'
+      }`}
+      style={{ opacity: isDragging ? 0.5 : 1 }}
+    >
+      <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
+      <div 
+        className={`w-2 h-2 rounded-full flex-shrink-0 ${priorityColorMap[project.priority] || 'bg-purple-500'}`}
+      />
+      <span className="text-xs font-semibold text-gray-500 flex-shrink-0 w-6">
+        {getPriorityInitials(project.priority)}
+      </span>
+      <span className="text-sm truncate flex-1">
+        {project.projectName}
+      </span>
+    </div>
+  );
+}
+
 function PriorityRow({ 
   priority, 
   isCustom, 
@@ -422,7 +488,9 @@ function EditableCard({
   indexInLane,
   teammates,
   onShowOwnerModal,
-  onShowTagModal 
+  onShowTagModal,
+  cardRef,
+  isHighlighted
 }: { 
   project: ProjectCard; 
   onUpdate: (id: string, updates: Partial<ProjectCard>) => void;
@@ -432,6 +500,8 @@ function EditableCard({
   teammates: Teammate[];
   onShowOwnerModal: (projectId: string) => void;
   onShowTagModal: (projectId: string) => void;
+  cardRef?: React.RefObject<HTMLDivElement>;
+  isHighlighted?: boolean;
 }) {
   const [{ isDragging }, drag] = useDrag(() => ({
     type: 'card',
@@ -499,12 +569,19 @@ function EditableCard({
 
   return (
     <div
-      ref={drag}
+      ref={(node) => {
+        drag(node);
+        if (cardRef) {
+          (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        }
+      }}
       style={{
         opacity: isDragging ? 0.5 : 1,
         cursor: 'move',
       }}
-      className="bg-white rounded-lg shadow-md p-5 border-2 border-gray-200 hover:shadow-lg transition-shadow"
+      className={`bg-white rounded-lg shadow-md p-5 border-2 hover:shadow-lg transition-all ${
+        isHighlighted ? 'border-yellow-400 ring-4 ring-yellow-300 ring-opacity-50' : 'border-gray-200'
+      }`}
     >
       {/* Header with drag handle and delete button */}
       <div className="flex items-center justify-between mb-3">
@@ -698,6 +775,24 @@ function sanitizeDateForInput(dateValue: string): string {
   return '';
 }
 
+// Helper function to convert priority names to initials for sidebar display
+function getPriorityInitials(priority: string): string {
+  // For standard priorities (P0-P4), return as is
+  if (/^P\d$/.test(priority)) {
+    return priority;
+  }
+  
+  // For custom priorities, convert to initials
+  const words = priority.split(' ');
+  if (words.length === 1) {
+    // Single word: take first letter (e.g., "Planned" → "P", "Backlog" → "B")
+    return priority.charAt(0).toUpperCase();
+  } else {
+    // Multiple words: take first letter of each word (e.g., "In Discussions" → "ID")
+    return words.map(word => word.charAt(0).toUpperCase()).join('');
+  }
+}
+
 export default function FigJamBoard() {
   const [projects, setProjects] = useState<ProjectCard[]>(initialProjects);
   const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows);
@@ -718,6 +813,11 @@ export default function FigJamBoard() {
   const [showUserPrompt, setShowUserPrompt] = useState(false);
   const [userNameInput, setUserNameInput] = useState('');
   const [isFirebaseReady, setIsFirebaseReady] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [highlightedProjectId, setHighlightedProjectId] = useState<string | null>(null);
+  
+  // Create refs for all project cards
+  const projectRefs = useRef<Record<string, React.RefObject<HTMLDivElement>>>({});
 
   // Initialize user on mount
   useEffect(() => {
@@ -733,6 +833,11 @@ export default function FigJamBoard() {
   // Set up Firebase real-time listeners
   useEffect(() => {
     if (!isFirebaseReady) return;
+    
+    // Only proceed if Firebase is initialized
+    if (!db) {
+      return;
+    }
 
     const projectsRef = ref(db, 'projects');
     const customRowsRef = ref(db, 'customRows');
@@ -741,38 +846,48 @@ export default function FigJamBoard() {
     // Listen for projects changes
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
       const data = snapshot.val();
-      if (data && Array.isArray(data)) {
+      // Safe array guard: only set if data is a valid array
+      if (Array.isArray(data)) {
         setProjects(data);
-      } else if (data) {
-        // If data exists but is not an array, try to convert or use default
-        setProjects(initialProjects);
-      } else {
+      } else if (data === null || data === undefined) {
         // Initialize with default data if empty
         set(projectsRef, cleanFirebaseData(initialProjects));
+        setProjects(initialProjects);
+      } else {
+        // Fallback for invalid data structure
+        setProjects(initialProjects);
       }
     });
 
     // Listen for custom rows changes
     const unsubscribeCustomRows = onValue(customRowsRef, (snapshot) => {
       const data = snapshot.val();
-      if (data && Array.isArray(data)) {
+      // Safe array guard: only set if data is a valid array
+      if (Array.isArray(data)) {
         setCustomRows(data);
-      } else if (data) {
+      } else if (data === null || data === undefined) {
+        // Initialize with default data if empty
+        set(customRowsRef, cleanFirebaseData(initialCustomRows));
         setCustomRows(initialCustomRows);
       } else {
-        set(customRowsRef, cleanFirebaseData(initialCustomRows));
+        // Fallback for invalid data structure
+        setCustomRows(initialCustomRows);
       }
     });
 
     // Listen for teammates changes
     const unsubscribeTeammates = onValue(teammatesRef, (snapshot) => {
       const data = snapshot.val();
-      if (data && Array.isArray(data)) {
+      // Safe array guard: only set if data is a valid array
+      if (Array.isArray(data)) {
         setTeammates(data);
-      } else if (data) {
+      } else if (data === null || data === undefined) {
+        // Initialize with default data if empty
+        set(teammatesRef, cleanFirebaseData(initialTeammates));
         setTeammates(initialTeammates);
       } else {
-        set(teammatesRef, cleanFirebaseData(initialTeammates));
+        // Fallback for invalid data structure
+        setTeammates(initialTeammates);
       }
     });
 
@@ -782,6 +897,15 @@ export default function FigJamBoard() {
       unsubscribeTeammates();
     };
   }, [isFirebaseReady]);
+
+  // Helper function to safely update Firebase or local state
+  const safeFirebaseSet = (path: string, data: any, localSetter?: (data: any) => void) => {
+    if (db) {
+      set(ref(db, path), cleanFirebaseData(data));
+    } else if (localSetter) {
+      localSetter(data);
+    }
+  };
 
   const handleUpdateProject = (id: string, updates: Partial<ProjectCard>) => {
     const updatedProjects = (projects || []).map((p) => 
@@ -794,7 +918,7 @@ export default function FigJamBoard() {
           } 
         : p
     );
-    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
@@ -810,12 +934,12 @@ export default function FigJamBoard() {
       }
       return p;
     });
-    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleDeleteProject = (id: string) => {
     const updatedProjects = (projects || []).filter((p) => p.id !== id);
-    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleAddNewCard = (priority: string, isCustom: boolean = false) => {
@@ -835,7 +959,7 @@ export default function FigJamBoard() {
       lastModifiedAt: Date.now()
     };
     const updatedProjects = [...(projects || []), newCard];
-    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleAddCustomRow = () => {
@@ -845,7 +969,7 @@ export default function FigJamBoard() {
       color: 'bg-indigo-50 border-indigo-200',
     };
     const updatedRows = [...(customRows || []), newRow];
-    set(ref(db, 'customRows'), cleanFirebaseData(updatedRows));
+    safeFirebaseSet('customRows', updatedRows, setCustomRows);
   };
 
   const handleDeleteCustomRow = (rowId: string) => {
@@ -853,8 +977,8 @@ export default function FigJamBoard() {
     if (rowToDelete) {
       const updatedProjects = (projects || []).filter(p => p.category !== rowToDelete.name);
       const updatedRows = (customRows || []).filter(r => r.id !== rowId);
-      set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
-      set(ref(db, 'customRows'), cleanFirebaseData(updatedRows));
+      safeFirebaseSet('projects', updatedProjects, setProjects);
+      safeFirebaseSet('customRows', updatedRows, setCustomRows);
     }
   };
 
@@ -866,7 +990,7 @@ export default function FigJamBoard() {
   const handleSaveRowName = (rowId: string) => {
     const oldName = (customRows || []).find(r => r.id === rowId)?.name;
     const updatedRows = (customRows || []).map(r => r.id === rowId ? { ...r, name: editingRowName } : r);
-    set(ref(db, 'customRows'), cleanFirebaseData(updatedRows));
+    safeFirebaseSet('customRows', updatedRows, setCustomRows);
     
     if (oldName) {
       const updatedProjects = (projects || []).map(p => 
@@ -874,7 +998,7 @@ export default function FigJamBoard() {
           ? { ...p, priority: editingRowName, category: editingRowName, lastModifiedBy: currentUser, lastModifiedAt: Date.now() } 
           : p
       );
-      set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
+      safeFirebaseSet('projects', updatedProjects, setProjects);
     }
     setEditingRowId(null);
     setEditingRowName('');
@@ -888,14 +1012,14 @@ export default function FigJamBoard() {
         color: teammateColors[(teammates || []).length % teammateColors.length],
       };
       const updatedTeammates = [...(teammates || []), newTeammate];
-      set(ref(db, 'teammates'), cleanFirebaseData(updatedTeammates));
+      safeFirebaseSet('teammates', updatedTeammates, setTeammates);
       setNewTeammateName('');
     }
   };
 
   const handleDeleteTeammate = (teammateId: string) => {
     const updatedTeammates = (teammates || []).filter(t => t.id !== teammateId);
-    set(ref(db, 'teammates'), cleanFirebaseData(updatedTeammates));
+    safeFirebaseSet('teammates', updatedTeammates, setTeammates);
     
     // Remove from all projects
     const updatedProjects = (projects || []).map(p => ({
@@ -905,7 +1029,7 @@ export default function FigJamBoard() {
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     }));
-    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleStartEditingTeammate = (teammateId: string, currentName: string, currentEmail?: string) => {
@@ -921,7 +1045,7 @@ export default function FigJamBoard() {
         name: editingTeammateName.trim(),
         email: editingTeammateEmail.trim() || undefined
       } : t);
-      set(ref(db, 'teammates'), cleanFirebaseData(updatedTeammates));
+      safeFirebaseSet('teammates', updatedTeammates, setTeammates);
       setEditingTeammateId(null);
       setEditingTeammateName('');
       setEditingTeammateEmail('');
@@ -964,10 +1088,135 @@ export default function FigJamBoard() {
     Backlog: 'text-slate-600',
   };
 
+  // Initialize refs for all projects
+  useEffect(() => {
+    (projects || []).forEach(project => {
+      if (!projectRefs.current[project.id]) {
+        projectRefs.current[project.id] = { current: null };
+      }
+    });
+  }, [projects]);
+
+  // Scroll to project when clicked in sidebar
+  const scrollToProject = (projectId: string) => {
+    const ref = projectRefs.current[projectId];
+    if (ref && ref.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedProjectId(projectId);
+      setTimeout(() => setHighlightedProjectId(null), 2000);
+    }
+  };
+
+  // Sort projects by priority for sidebar display
+  const getSortedProjectsForSidebar = () => {
+    const priorityOrder = ['P0', 'P1', 'P2', 'P3', 'P4'];
+    
+    return [...(projects || [])].sort((a, b) => {
+      const aPriorityIndex = priorityOrder.indexOf(a.priority);
+      const bPriorityIndex = priorityOrder.indexOf(b.priority);
+      
+      // If both are standard priorities (P0-P4)
+      if (aPriorityIndex !== -1 && bPriorityIndex !== -1) {
+        if (aPriorityIndex !== bPriorityIndex) {
+          return aPriorityIndex - bPriorityIndex;
+        }
+        // Same priority, sort by lineNumber
+        return a.lineNumber - b.lineNumber;
+      }
+      
+      // If only 'a' is a standard priority, it comes first
+      if (aPriorityIndex !== -1) return -1;
+      
+      // If only 'b' is a standard priority, it comes first
+      if (bPriorityIndex !== -1) return 1;
+      
+      // Both are custom rows, sort alphabetically by priority name, then by lineNumber
+      if (a.priority !== b.priority) {
+        return a.priority.localeCompare(b.priority);
+      }
+      return a.lineNumber - b.lineNumber;
+    });
+  };
+
+  // Handle project reorder from sidebar
+  const handleSidebarProjectDrop = (draggedId: string, targetId: string) => {
+    const draggedProject = (projects || []).find(p => p.id === draggedId);
+    const targetProject = (projects || []).find(p => p.id === targetId);
+    
+    if (draggedProject && targetProject) {
+      // Update priority to match target
+      handleUpdateProject(draggedId, { 
+        priority: targetProject.priority,
+        category: targetProject.category 
+      });
+    }
+  };
+
   return (
-    <div className="relative w-full min-h-screen bg-[#f5f5f5]">
-      {/* Toolbar */}
-      <div className="fixed top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-sm z-10 px-6 py-4">
+    <div className="relative w-full min-h-screen bg-[#f5f5f5] flex">
+      {/* Left Sidebar */}
+      <div 
+        className={`fixed left-0 top-0 bottom-0 bg-white border-r border-gray-200 shadow-lg transition-all duration-300 z-20 ${
+          isSidebarOpen ? 'w-80' : 'w-0'
+        }`}
+      >
+        <div className={`h-full flex flex-col ${isSidebarOpen ? '' : 'hidden'}`}>
+          {/* Sidebar Header */}
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="font-bold text-lg">All Projects</h2>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          </div>
+          
+          {/* Add Project Button */}
+          <div className="p-3 border-b border-gray-200">
+            <button
+              onClick={() => handleAddNewCard('P0')}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Add New Project
+            </button>
+          </div>
+
+          {/* Projects List */}
+          <div className="flex-1 overflow-y-auto p-3">
+            <div className="text-xs font-semibold text-gray-500 mb-2 px-2">
+              {(projects || []).length} PROJECTS
+            </div>
+            <div className="space-y-1">
+              {getSortedProjectsForSidebar().map((project) => (
+                <SidebarProjectItem
+                  key={project.id}
+                  project={project}
+                  onDrop={handleSidebarProjectDrop}
+                  onClick={() => scrollToProject(project.id)}
+                  isHighlighted={highlightedProjectId === project.id}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sidebar Toggle Button (when closed) */}
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="fixed left-0 top-20 bg-white border border-gray-200 rounded-r-lg p-2 shadow-lg z-20 hover:bg-gray-50 transition-colors"
+        >
+          <ChevronRight className="w-5 h-5 text-gray-600" />
+        </button>
+      )}
+
+      {/* Main Content */}
+      <div className={`flex-1 transition-all duration-300 ${isSidebarOpen ? 'ml-80' : 'ml-0'}`}>
+        {/* Toolbar */}
+        <div className="fixed top-0 right-0 bg-white border-b border-gray-200 shadow-sm z-10 px-6 py-4" style={{ left: isSidebarOpen ? '320px' : '0' }}>
         <div className="flex items-center justify-between max-w-screen-2xl mx-auto">
           <h1 className="text-2xl font-bold">Project Board – Oracle Conversation Design Team</h1>
           <div className="flex items-center gap-4">
@@ -1036,20 +1285,27 @@ export default function FigJamBoard() {
                 </div>
                 <div className="flex gap-4 overflow-x-auto pb-2">
                   {groupedProjects[priority]?.length > 0 ? (
-                    groupedProjects[priority].map((project, index) => (
-                      <div key={project.id} className="flex-shrink-0 w-80">
-                        <EditableCard
-                          project={project}
-                          onUpdate={handleUpdateProject}
-                          onDelete={handleDeleteProject}
-                          laneIndex={laneIndex}
-                          indexInLane={index}
-                          teammates={teammates}
-                          onShowOwnerModal={setShowOwnerModal}
-                          onShowTagModal={setShowTagModal}
-                        />
-                      </div>
-                    ))
+                    groupedProjects[priority].map((project, index) => {
+                      if (!projectRefs.current[project.id]) {
+                        projectRefs.current[project.id] = { current: null };
+                      }
+                      return (
+                        <div key={project.id} className="flex-shrink-0 w-80">
+                          <EditableCard
+                            project={project}
+                            onUpdate={handleUpdateProject}
+                            onDelete={handleDeleteProject}
+                            laneIndex={laneIndex}
+                            indexInLane={index}
+                            teammates={teammates}
+                            onShowOwnerModal={setShowOwnerModal}
+                            onShowTagModal={setShowTagModal}
+                            cardRef={projectRefs.current[project.id]}
+                            isHighlighted={highlightedProjectId === project.id}
+                          />
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="w-full text-center py-8 text-gray-400 text-sm">
                       No projects in this priority level. Click "Add Card" to create one.
@@ -1123,20 +1379,27 @@ export default function FigJamBoard() {
                 </div>
                 <div className="flex gap-4 overflow-x-auto pb-2">
                   {groupedProjects[row.name]?.length > 0 ? (
-                    groupedProjects[row.name].map((project, index) => (
-                      <div key={project.id} className="flex-shrink-0 w-80">
-                        <EditableCard
-                          project={project}
-                          onUpdate={handleUpdateProject}
-                          onDelete={handleDeleteProject}
-                          laneIndex={priorityRows.length + laneIndex}
-                          indexInLane={index}
-                          teammates={teammates}
-                          onShowOwnerModal={setShowOwnerModal}
-                          onShowTagModal={setShowTagModal}
-                        />
-                      </div>
-                    ))
+                    groupedProjects[row.name].map((project, index) => {
+                      if (!projectRefs.current[project.id]) {
+                        projectRefs.current[project.id] = { current: null };
+                      }
+                      return (
+                        <div key={project.id} className="flex-shrink-0 w-80">
+                          <EditableCard
+                            project={project}
+                            onUpdate={handleUpdateProject}
+                            onDelete={handleDeleteProject}
+                            laneIndex={priorityRows.length + laneIndex}
+                            indexInLane={index}
+                            teammates={teammates}
+                            onShowOwnerModal={setShowOwnerModal}
+                            onShowTagModal={setShowTagModal}
+                            cardRef={projectRefs.current[project.id]}
+                            isHighlighted={highlightedProjectId === project.id}
+                          />
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="w-full text-center py-8 text-gray-400 text-sm">
                       No projects in this category. Click "Add Card" to create one.
@@ -1628,6 +1891,7 @@ export default function FigJamBoard() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
