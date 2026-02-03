@@ -398,7 +398,7 @@ function SidebarProjectItem({
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
-  }));
+  }), [project.id]);
 
   const [{ isOver }, drop] = useDrop(() => ({
     accept: 'sidebar-project',
@@ -410,7 +410,7 @@ function SidebarProjectItem({
     collect: (monitor) => ({
       isOver: monitor.isOver(),
     }),
-  }));
+  }), [project.id, onDrop]);
 
   const priorityColorMap: Record<string, string> = {
     P0: 'bg-red-500',
@@ -577,7 +577,6 @@ function EditableCard({
       }}
       style={{
         opacity: isDragging ? 0.5 : 1,
-        cursor: 'move',
       }}
       className={`bg-white rounded-lg shadow-md p-5 border-2 hover:shadow-lg transition-all ${
         isHighlighted ? 'border-yellow-400 ring-4 ring-yellow-300 ring-opacity-50' : 'border-gray-200'
@@ -586,7 +585,7 @@ function EditableCard({
       {/* Header with drag handle and delete button */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <GripVertical className="text-gray-400 w-5 h-5" />
+          <GripVertical className="text-gray-400 w-5 h-5 cursor-move" />
           <span className="font-bold text-base">{project.lineNumber}.</span>
           <span 
             className={`px-2.5 py-0.5 rounded-full text-xs font-bold border-2 ${priorityColors[project.priority] || 'bg-gray-100 text-gray-700 border-gray-300'}`}
@@ -794,9 +793,9 @@ function getPriorityInitials(priority: string): string {
 }
 
 export default function FigJamBoard() {
-  const [projects, setProjects] = useState<ProjectCard[]>(initialProjects);
-  const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows);
-  const [teammates, setTeammates] = useState<Teammate[]>(initialTeammates);
+  const [projects, setProjects] = useState<ProjectCard[]>([]);
+  const [customRows, setCustomRows] = useState<CustomRow[]>([]);
+  const [teammates, setTeammates] = useState<Teammate[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingRowName, setEditingRowName] = useState('');
   const [showTeammatesManagementModal, setShowTeammatesManagementModal] = useState(false);
@@ -813,6 +812,7 @@ export default function FigJamBoard() {
   const [showUserPrompt, setShowUserPrompt] = useState(false);
   const [userNameInput, setUserNameInput] = useState('');
   const [isFirebaseReady, setIsFirebaseReady] = useState(false);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [highlightedProjectId, setHighlightedProjectId] = useState<string | null>(null);
   
@@ -853,6 +853,7 @@ export default function FigJamBoard() {
         setCustomRows(initialCustomRows);
         setTeammates(initialTeammates);
       }
+      setIsDataLoaded(true);
       return;
     }
 
@@ -874,6 +875,7 @@ export default function FigJamBoard() {
         // Fallback for invalid data structure
         setProjects(initialProjects);
       }
+      setIsDataLoaded(true);
     });
 
     // Listen for custom rows changes
@@ -1194,21 +1196,35 @@ export default function FigJamBoard() {
       // Insert at target position
       withoutDragged.splice(targetIdx, 0, newDragged);
       
-      // Recalculate lineNumbers for this priority only
-      withoutDragged.forEach((p, idx) => {
-        p.lineNumber = idx + 1;
-      });
+      // Recalculate lineNumbers for this priority only - CREATE NEW OBJECTS
+      const reorderedPriorityGroup = withoutDragged.map((p, idx) => ({
+        ...p,
+        lineNumber: idx + 1
+      }));
       
       // Merge back with other priorities
       const otherProjects = allProjects.filter(p => 
         p.priority !== targetProject.priority && p.id !== draggedId
       );
       
-      const finalProjects = [...otherProjects, ...withoutDragged];
+      const finalProjects = [...otherProjects, ...reorderedPriorityGroup];
       
       safeFirebaseSet('projects', finalProjects, setProjects);
     }
   };
+
+  // Show loading screen until data is loaded from Firebase
+  if (!isDataLoaded) {
+    return (
+      <div className="w-full min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mb-4"></div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Loading Oracle Conversation Design Board</h2>
+          <p className="text-gray-600">Syncing real-time data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-full min-h-screen bg-[#f5f5f5] flex">
