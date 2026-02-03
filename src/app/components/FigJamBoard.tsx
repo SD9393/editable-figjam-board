@@ -442,7 +442,7 @@ function EditableCard({
   }));
 
   const handleToggleSubtask = (subtaskId: string) => {
-    const updatedSubtasks = project.subtasks.map(st =>
+    const updatedSubtasks = (project.subtasks || []).map(st =>
       st.id === subtaskId ? { ...st, completed: !st.completed } : st
     );
     onUpdate(project.id, { subtasks: updatedSubtasks });
@@ -530,7 +530,7 @@ function EditableCard({
 
       {/* Subtasks */}
       <div className="space-y-1.5 mb-4">
-        {project.subtasks.map((subtask) => (
+        {(project.subtasks || []).map((subtask) => (
           <div key={subtask.id} className="flex items-start gap-2 group">
             <input
               type="checkbox"
@@ -542,7 +542,7 @@ function EditableCard({
               type="text"
               value={subtask.text}
               onChange={(e) => {
-                const updatedSubtasks = project.subtasks.map(st =>
+                const updatedSubtasks = (project.subtasks || []).map(st =>
                   st.id === subtask.id ? { ...st, text: e.target.value } : st
                 );
                 onUpdate(project.id, { subtasks: updatedSubtasks });
@@ -746,7 +746,7 @@ export default function FigJamBoard() {
   }, [isFirebaseReady]);
 
   const handleUpdateProject = (id: string, updates: Partial<ProjectCard>) => {
-    const updatedProjects = projects.map((p) => 
+    const updatedProjects = (projects || []).map((p) => 
       p.id === id 
         ? { 
             ...p, 
@@ -760,7 +760,7 @@ export default function FigJamBoard() {
   };
 
   const handleCardDrop = (cardId: string, priority: string, isCustom: boolean) => {
-    const updatedProjects = projects.map((p) => {
+    const updatedProjects = (projects || []).map((p) => {
       if (p.id === cardId) {
         return {
           ...p,
@@ -998,7 +998,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
                 </div>
                 <div className="flex gap-4 overflow-x-auto pb-2">
                   {groupedProjects[priority]?.length > 0 ? (
-                    groupedProjects[priority].map((project, index) => (
+                    (groupedProjects[priority] || []).map((project, index) => (
                       <div key={project.id} className="flex-shrink-0 w-80">
                         <EditableCard
                           project={project}
@@ -1023,7 +1023,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
           ))}
 
           {/* Custom Rows */}
-          {customRows.map((row, laneIndex) => (
+          {(customRows || []).map((row, laneIndex) => (
             <PriorityRow
               key={row.id}
               priority={row.name}
@@ -1123,7 +1123,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
             </div>
 
             <div className="space-y-2 mb-4">
-              {teammates.map(teammate => (
+              {(teammates || []).map(teammate => (
                 <div key={teammate.id} className="flex flex-col gap-2 px-4 py-3 rounded-lg border-2 border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 ${teammate.color} rounded-full flex items-center justify-center text-white font-bold text-sm`}>
@@ -1234,7 +1234,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
             </div>
             
             <div className="space-y-2 mb-4">
-              {teammates.map(teammate => {
+              {(teammates || []).map(teammate => {
                 const project = projects.find(p => p.id === showOwnerModal);
                 const isOwner = project?.ownerTags?.includes(teammate.id);
                 return (
@@ -1291,7 +1291,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
             </div>
             
             <div className="space-y-2 mb-4">
-              {teammates.map(teammate => {
+              {(teammates || []).map(teammate => {
                 const project = projects.find(p => p.id === showTagModal);
                 const isTagged = project?.tags?.includes(teammate.id);
                 return (
