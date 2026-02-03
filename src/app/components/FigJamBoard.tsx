@@ -391,7 +391,7 @@ function PriorityRow({
   priority: string; 
   isCustom: boolean; 
   projects: ProjectCard[]; 
-  onDrop: (cardId: string, "Medium",: string, isCustom: boolean) => void;
+  onDrop: (cardId: string, priority,: string, isCustom: boolean) => void;
   children: React.ReactNode;
 }) {
   const [{ isOver }, drop] = useDrop(() => ({
@@ -758,7 +758,7 @@ export default function FigJamBoard() {
     set(ref(db, 'projects'), updatedProjects);
   };
 
-  const handleCardDrop = (cardId: string, "Medium",: string, isCustom: boolean) => {
+  const handleCardDrop = (cardId: string, priority,: string, isCustom: boolean) => {
     const updatedProjects = projects.map((p) => {
       if (p.id === cardId) {
         return {
