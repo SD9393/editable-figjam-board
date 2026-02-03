@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { GripVertical, Plus, X, Edit2, Check, Users, Calendar, Trash2, Mail, Bell, HelpCircle } from 'lucide-react';
-import { database } from '@/config/firebase';
+import { db } from '@/config/firebase';
 import { ref, set, onValue, update } from 'firebase/database';
 
 interface Subtask {
@@ -611,8 +611,8 @@ function EditableCard({
         <div className="flex items-center gap-2">
           <input
             type="date"
-            value={project.deliverableDate}
-            onChange={(e) => onUpdate(project.id, { deliverableDate: e.target.value })}
+            value={sanitizeDateForInput(project.deliverableDate)}
+            onChange={(e) => onUpdate(project.id, { deliverableDate: e.target.value || '—' })}
             className="flex-1 border-b border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none px-1 text-xs"
           />
           <Calendar className="w-4 h-4 text-gray-400" />
@@ -688,6 +688,16 @@ function cleanFirebaseData<T>(data: T): T {
   return data;
 }
 
+// Helper function to sanitize date values for HTML date input
+function sanitizeDateForInput(dateValue: string): string {
+  // If it's a valid YYYY-MM-DD format, return it
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    return dateValue;
+  }
+  // Otherwise return empty string (don't allow "TBD", "------", "—", etc.)
+  return '';
+}
+
 export default function FigJamBoard() {
   const [projects, setProjects] = useState<ProjectCard[]>(initialProjects);
   const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows);
@@ -724,38 +734,45 @@ export default function FigJamBoard() {
   useEffect(() => {
     if (!isFirebaseReady) return;
 
-    const projectsRef = ref(database, 'projects');
-    const customRowsRef = ref(database, 'customRows');
-    const teammatesRef = ref(database, 'teammates');
+    const projectsRef = ref(db, 'projects');
+    const customRowsRef = ref(db, 'customRows');
+    const teammatesRef = ref(db, 'teammates');
 
     // Listen for projects changes
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
       const data = snapshot.val();
-      if (data) {
+      if (data && Array.isArray(data)) {
         setProjects(data);
+      } else if (data) {
+        // If data exists but is not an array, try to convert or use default
+        setProjects(initialProjects);
       } else {
         // Initialize with default data if empty
-        set(projectsRef, initialProjects);
+        set(projectsRef, cleanFirebaseData(initialProjects));
       }
     });
 
     // Listen for custom rows changes
     const unsubscribeCustomRows = onValue(customRowsRef, (snapshot) => {
       const data = snapshot.val();
-      if (data) {
+      if (data && Array.isArray(data)) {
         setCustomRows(data);
+      } else if (data) {
+        setCustomRows(initialCustomRows);
       } else {
-        set(customRowsRef, initialCustomRows);
+        set(customRowsRef, cleanFirebaseData(initialCustomRows));
       }
     });
 
     // Listen for teammates changes
     const unsubscribeTeammates = onValue(teammatesRef, (snapshot) => {
       const data = snapshot.val();
-      if (data) {
+      if (data && Array.isArray(data)) {
         setTeammates(data);
+      } else if (data) {
+        setTeammates(initialTeammates);
       } else {
-        set(teammatesRef, initialTeammates);
+        set(teammatesRef, cleanFirebaseData(initialTeammates));
       }
     });
 
@@ -767,7 +784,7 @@ export default function FigJamBoard() {
   }, [isFirebaseReady]);
 
   const handleUpdateProject = (id: string, updates: Partial<ProjectCard>) => {
-    const updatedProjects = projects.map((p) => 
+    const updatedProjects = (projects || []).map((p) => 
       p.id === id 
         ? { 
             ...p, 
@@ -777,11 +794,11 @@ export default function FigJamBoard() {
           } 
         : p
     );
-    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
+    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
-    const updatedProjects = projects.map((p) => {
+    const updatedProjects = (projects || []).map((p) => {
       if (p.id === cardId) {
         return {
           ...p,
@@ -793,18 +810,18 @@ export default function FigJamBoard() {
       }
       return p;
     });
-    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
+    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleDeleteProject = (id: string) => {
-    const updatedProjects = projects.filter((p) => p.id !== id);
-    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
+    const updatedProjects = (projects || []).filter((p) => p.id !== id);
+    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleAddNewCard = (priority: string, isCustom: boolean = false) => {
     const newCard: ProjectCard = {
       id: `${Date.now()}`,
-      lineNumber: projects.length + 1,
+      lineNumber: (projects || []).length + 1,
       priority,
       projectName: 'New Project',
       subtasks: [],
@@ -817,8 +834,8 @@ export default function FigJamBoard() {
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     };
-    const updatedProjects = [...projects, newCard];
-    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
+    const updatedProjects = [...(projects || []), newCard];
+    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleAddCustomRow = () => {
@@ -827,17 +844,17 @@ export default function FigJamBoard() {
       name: 'New Category',
       color: 'bg-indigo-50 border-indigo-200',
     };
-    const updatedRows = [...customRows, newRow];
-    set(ref(database, 'customRows'), cleanFirebaseData(updatedRows));
+    const updatedRows = [...(customRows || []), newRow];
+    set(ref(db, 'customRows'), cleanFirebaseData(updatedRows));
   };
 
   const handleDeleteCustomRow = (rowId: string) => {
-    const rowToDelete = customRows.find(r => r.id === rowId);
+    const rowToDelete = (customRows || []).find(r => r.id === rowId);
     if (rowToDelete) {
-      const updatedProjects = projects.filter(p => p.category !== rowToDelete.name);
-      const updatedRows = customRows.filter(r => r.id !== rowId);
-      set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
-      set(ref(database, 'customRows'), cleanFirebaseData(updatedRows));
+      const updatedProjects = (projects || []).filter(p => p.category !== rowToDelete.name);
+      const updatedRows = (customRows || []).filter(r => r.id !== rowId);
+      set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
+      set(ref(db, 'customRows'), cleanFirebaseData(updatedRows));
     }
   };
 
@@ -847,17 +864,17 @@ export default function FigJamBoard() {
   };
 
   const handleSaveRowName = (rowId: string) => {
-    const oldName = customRows.find(r => r.id === rowId)?.name;
-    const updatedRows = customRows.map(r => r.id === rowId ? { ...r, name: editingRowName } : r);
-    set(ref(database, 'customRows'), cleanFirebaseData(updatedRows));
+    const oldName = (customRows || []).find(r => r.id === rowId)?.name;
+    const updatedRows = (customRows || []).map(r => r.id === rowId ? { ...r, name: editingRowName } : r);
+    set(ref(db, 'customRows'), cleanFirebaseData(updatedRows));
     
     if (oldName) {
-      const updatedProjects = projects.map(p => 
+      const updatedProjects = (projects || []).map(p => 
         p.category === oldName 
           ? { ...p, priority: editingRowName, category: editingRowName, lastModifiedBy: currentUser, lastModifiedAt: Date.now() } 
           : p
       );
-      set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
+      set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
     }
     setEditingRowId(null);
     setEditingRowName('');
@@ -868,27 +885,27 @@ export default function FigJamBoard() {
       const newTeammate: Teammate = {
         id: `${Date.now()}`,
         name: newTeammateName.trim(),
-        color: teammateColors[teammates.length % teammateColors.length],
+        color: teammateColors[(teammates || []).length % teammateColors.length],
       };
-      const updatedTeammates = [...teammates, newTeammate];
-      set(ref(database, 'teammates'), cleanFirebaseData(updatedTeammates));
+      const updatedTeammates = [...(teammates || []), newTeammate];
+      set(ref(db, 'teammates'), cleanFirebaseData(updatedTeammates));
       setNewTeammateName('');
     }
   };
 
   const handleDeleteTeammate = (teammateId: string) => {
-    const updatedTeammates = teammates.filter(t => t.id !== teammateId);
-    set(ref(database, 'teammates'), cleanFirebaseData(updatedTeammates));
+    const updatedTeammates = (teammates || []).filter(t => t.id !== teammateId);
+    set(ref(db, 'teammates'), cleanFirebaseData(updatedTeammates));
     
     // Remove from all projects
-    const updatedProjects = projects.map(p => ({
+    const updatedProjects = (projects || []).map(p => ({
       ...p,
-      ownerTags: p.ownerTags?.filter(id => id !== teammateId),
-      tags: p.tags?.filter(id => id !== teammateId),
+      ownerTags: (p.ownerTags || []).filter(id => id !== teammateId),
+      tags: (p.tags || []).filter(id => id !== teammateId),
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     }));
-    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
+    set(ref(db, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleStartEditingTeammate = (teammateId: string, currentName: string, currentEmail?: string) => {
@@ -899,12 +916,12 @@ export default function FigJamBoard() {
 
   const handleSaveTeammateName = () => {
     if (editingTeammateName.trim() && editingTeammateId) {
-      const updatedTeammates = teammates.map(t => t.id === editingTeammateId ? { 
+      const updatedTeammates = (teammates || []).map(t => t.id === editingTeammateId ? { 
         ...t, 
         name: editingTeammateName.trim(),
         email: editingTeammateEmail.trim() || undefined
       } : t);
-      set(ref(database, 'teammates'), cleanFirebaseData(updatedTeammates));
+      set(ref(db, 'teammates'), cleanFirebaseData(updatedTeammates));
       setEditingTeammateId(null);
       setEditingTeammateName('');
       setEditingTeammateEmail('');
@@ -914,15 +931,15 @@ export default function FigJamBoard() {
   // Group projects by priority
   const priorityRows = ['P0', 'P1', 'P2', 'P3', 'P4'];
   const groupedProjects: Record<string, ProjectCard[]> = {
-    P0: projects.filter(p => p.priority === 'P0'),
-    P1: projects.filter(p => p.priority === 'P1'),
-    P2: projects.filter(p => p.priority === 'P2'),
-    P3: projects.filter(p => p.priority === 'P3'),
-    P4: projects.filter(p => p.priority === 'P4'),
+    P0: (projects || []).filter(p => p.priority === 'P0'),
+    P1: (projects || []).filter(p => p.priority === 'P1'),
+    P2: (projects || []).filter(p => p.priority === 'P2'),
+    P3: (projects || []).filter(p => p.priority === 'P3'),
+    P4: (projects || []).filter(p => p.priority === 'P4'),
   };
 
-  customRows.forEach(row => {
-    groupedProjects[row.name] = projects.filter(p => p.category === row.name);
+  (customRows || []).forEach(row => {
+    groupedProjects[row.name] = (projects || []).filter(p => p.category === row.name);
   });
 
   const priorityColors: Record<string, string> = {
@@ -960,7 +977,7 @@ export default function FigJamBoard() {
               </div>
             )}
             <div className="text-sm text-gray-600">
-              {projects.length} projects • {teammates.length} teammates
+              {(projects || []).length} projects • {(teammates || []).length} teammates
             </div>
             <button
               onClick={() => setShowTeammatesManagementModal(true)}
@@ -1044,7 +1061,7 @@ export default function FigJamBoard() {
           ))}
 
           {/* Custom Rows */}
-          {customRows.map((row, laneIndex) => (
+          {(customRows || []).map((row, laneIndex) => (
             <PriorityRow
               key={row.id}
               priority={row.name}
@@ -1144,7 +1161,7 @@ export default function FigJamBoard() {
             </div>
 
             <div className="space-y-2 mb-4">
-              {teammates.map(teammate => (
+              {(teammates || []).map(teammate => (
                 <div key={teammate.id} className="flex flex-col gap-2 px-4 py-3 rounded-lg border-2 border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 ${teammate.color} rounded-full flex items-center justify-center text-white font-bold text-sm`}>
@@ -1255,8 +1272,8 @@ export default function FigJamBoard() {
             </div>
             
             <div className="space-y-2 mb-4">
-              {teammates.map(teammate => {
-                const project = projects.find(p => p.id === showOwnerModal);
+              {(teammates || []).map(teammate => {
+                const project = (projects || []).find(p => p.id === showOwnerModal);
                 const isOwner = project?.ownerTags?.includes(teammate.id);
                 return (
                   <button
@@ -1312,8 +1329,8 @@ export default function FigJamBoard() {
             </div>
             
             <div className="space-y-2 mb-4">
-              {teammates.map(teammate => {
-                const project = projects.find(p => p.id === showTagModal);
+              {(teammates || []).map(teammate => {
+                const project = (projects || []).find(p => p.id === showTagModal);
                 const isTagged = project?.tags?.includes(teammate.id);
                 return (
                   <button
