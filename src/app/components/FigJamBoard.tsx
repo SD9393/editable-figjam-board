@@ -718,14 +718,15 @@ export default function FigJamBoard() {
     });
 
     // Listen for custom rows changes
-    const unsubscribeCustomRows = onValue(ref(db, "customRows"), (snapshot) => {
-  setRows(snapshot.val() || []);
-      if (data) {
-        setCustomRows(data || []);
-      } else {
-        set(customRowsRef, initialCustomRows);
-      }
-    });
+    const unsubscribeCustomRows = onValue(customRowsRef, (snapshot) => {
+  const data = snapshot.val() || [];
+  if (data.length > 0) {
+    setCustomRows(data);
+   } else {
+    set(customRowsRef, initialCustomRows);
+   }
+  });
+
 
     // Listen for teammates changes
     const unsubscribeTeammates = onValue(teammatesRef, (snapshot) => {
@@ -826,7 +827,7 @@ export default function FigJamBoard() {
 
   const handleSaveRowName = (rowId: string) => {
     const oldName = customRows.find(r => r.id === rowId)?.name;
-    const updatedRows = custom(rows || []).map(r => r.id === rowId ? { ...r, name: editingRowName } : r);
+    const const updatedRows = (customRows.map(r =>r.id === rowId ? { ...r, name: editingRowName } : r;
     set(ref(db, 'customRows'), updatedRows);
     
     if (oldName) {
@@ -969,7 +970,7 @@ export default function FigJamBoard() {
       <div className="pt-20 px-6 pb-6">
         <div className="flex flex-col gap-6 max-w-screen-2xl mx-auto">
           {/* Fixed Priority Rows */}
-          {priority(rows || []).map((priority, laneIndex) => (
+          {priorityRows.map((priority, laneIndex) => (
             <PriorityRow
               key={priority}
               priority={priority}
@@ -1022,7 +1023,7 @@ export default function FigJamBoard() {
           ))}
 
           {/* Custom Rows */}
-          {custom(rows || []).map((row, laneIndex) => (
+          {customRows.map((row, laneIndex) => (
             <PriorityRow
               key={row.id}
               priority={row.name}
