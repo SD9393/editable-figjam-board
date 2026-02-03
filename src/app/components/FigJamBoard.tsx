@@ -795,6 +795,7 @@ function getPriorityInitials(priority: string): string {
 
 export default function FigJamBoard() {
   const [projects, setProjects] = useState<ProjectCard[]>(initialProjects);
+  const [projectsHydrated, setProjectsHydrated] = useState(false);
   const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows);
   const [teammates, setTeammates] = useState<Teammate[]>(initialTeammates);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -845,19 +846,13 @@ export default function FigJamBoard() {
 
     // Listen for projects changes
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
-      const data = snapshot.val();
-      // Safe array guard: only set if data is a valid array
-      if (Array.isArray(data)) {
-        setProjects(data);
-      } else if (data === null || data === undefined) {
-        // Initialize with default data if empty
-        set(projectsRef, cleanFirebaseData(initialProjects));
-        setProjects(initialProjects);
-      } else {
-        // Fallback for invalid data structure
-        setProjects(initialProjects);
-      }
-    });
+    const data = snapshot.val();
+   if (Array.isArray(data)) {
+    setProjects(data);
+   }
+ });
+
+
 
     // Listen for custom rows changes
     const unsubscribeCustomRows = onValue(customRowsRef, (snapshot) => {
@@ -899,15 +894,11 @@ export default function FigJamBoard() {
   }, [isFirebaseReady]);
 
   // Helper function to safely update Firebase or local state
- const safeFirebaseSet = (path: string, data: any, localSetter?: (data: any) => void) => {
-  if (localSetter) {
-    localSetter(data);   // ✅ immediate UI update
-  }
-
-  if (db) {
-    set(ref(db, path), cleanFirebaseData(data)); // ✅ persist
-  }
- };
+   const safeFirebaseSet = (path: string, data: any) => {
+   if (db) {
+    set(ref(db, path), cleanFirebaseData(data));
+   }
+ }; 
 
   const handleUpdateProject = (id: string, updates: Partial<ProjectCard>) => {
     const updatedProjects = (projects || []).map((p) => 
@@ -920,7 +911,7 @@ export default function FigJamBoard() {
           } 
         : p
     );
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects);
   };
 
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
@@ -936,12 +927,12 @@ export default function FigJamBoard() {
       }
       return p;
     });
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects);
   };
 
   const handleDeleteProject = (id: string) => {
     const updatedProjects = (projects || []).filter((p) => p.id !== id);
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects);
   };
 
   const handleAddNewCard = (priority: string, isCustom: boolean = false) => {
@@ -961,7 +952,7 @@ export default function FigJamBoard() {
       lastModifiedAt: Date.now()
     };
     const updatedProjects = [...(projects || []), newCard];
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects);
   };
 
   const handleAddCustomRow = () => {
@@ -979,7 +970,7 @@ export default function FigJamBoard() {
     if (rowToDelete) {
       const updatedProjects = (projects || []).filter(p => p.category !== rowToDelete.name);
       const updatedRows = (customRows || []).filter(r => r.id !== rowId);
-      safeFirebaseSet('projects', updatedProjects, setProjects);
+      safeFirebaseSet('projects', updatedProjects);
       safeFirebaseSet('customRows', updatedRows, setCustomRows);
     }
   };
@@ -1000,7 +991,7 @@ export default function FigJamBoard() {
           ? { ...p, priority: editingRowName, category: editingRowName, lastModifiedBy: currentUser, lastModifiedAt: Date.now() } 
           : p
       );
-      safeFirebaseSet('projects', updatedProjects, setProjects);
+      safeFirebaseSet('projects', updatedProjects);
     }
     setEditingRowId(null);
     setEditingRowName('');
@@ -1031,7 +1022,7 @@ export default function FigJamBoard() {
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     }));
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects);
   };
 
   const handleStartEditingTeammate = (teammateId: string, currentName: string, currentEmail?: string) => {
