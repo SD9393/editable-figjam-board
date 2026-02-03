@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { GripVertical, Plus, X, Edit2, Check, Users, Calendar, Trash2, Mail, Bell, HelpCircle } from 'lucide-react';
-import { db } from "../../config/firebase";
+import { database } from '@/config/firebase';
 import { ref, set, onValue, update } from 'firebase/database';
 
 interface Subtask {
@@ -391,7 +391,7 @@ function PriorityRow({
   priority: string; 
   isCustom: boolean; 
   projects: ProjectCard[]; 
-  onDrop: (cardId: string, priority: string, isCustom: boolean) => void;
+  onDrop: (cardId: string, newPriority: string, isCustom: boolean) => void;
   children: React.ReactNode;
 }) {
   const [{ isOver }, drop] = useDrop(() => ({
@@ -441,8 +441,13 @@ function EditableCard({
     }),
   }));
 
+  // Ensure arrays always exist (Firebase might not have them if they were empty)
+  const subtasks = project.subtasks || [];
+  const ownerTags = project.ownerTags || [];
+  const tags = project.tags || [];
+
   const handleToggleSubtask = (subtaskId: string) => {
-    const updatedSubtasks = (project.subtasks || []).map(st =>
+    const updatedSubtasks = subtasks.map(st =>
       st.id === subtaskId ? { ...st, completed: !st.completed } : st
     );
     onUpdate(project.id, { subtasks: updatedSubtasks });
@@ -454,11 +459,11 @@ function EditableCard({
       text: 'New subtask',
       completed: false,
     };
-    onUpdate(project.id, { subtasks: [...project.subtasks, newSubtask] });
+    onUpdate(project.id, { subtasks: [...subtasks, newSubtask] });
   };
 
   const handleDeleteSubtask = (subtaskId: string) => {
-    const updatedSubtasks = project.subtasks.filter(st => st.id !== subtaskId);
+    const updatedSubtasks = subtasks.filter(st => st.id !== subtaskId);
     onUpdate(project.id, { subtasks: updatedSubtasks });
   };
 
@@ -530,7 +535,7 @@ function EditableCard({
 
       {/* Subtasks */}
       <div className="space-y-1.5 mb-4">
-        {(project.subtasks || []).map((subtask) => (
+        {subtasks.map((subtask) => (
           <div key={subtask.id} className="flex items-start gap-2 group">
             <input
               type="checkbox"
@@ -542,7 +547,7 @@ function EditableCard({
               type="text"
               value={subtask.text}
               onChange={(e) => {
-                const updatedSubtasks = (project.subtasks || []).map(st =>
+                const updatedSubtasks = subtasks.map(st =>
                   st.id === subtask.id ? { ...st, text: e.target.value } : st
                 );
                 onUpdate(project.id, { subtasks: updatedSubtasks });
@@ -572,7 +577,7 @@ function EditableCard({
       <div className="mb-2">
         <label className="text-[10px] text-gray-500 uppercase tracking-wide">Owner</label>
         <div className="flex flex-wrap items-center gap-2 mt-1">
-          {project.ownerTags?.map(ownerId => {
+          {ownerTags.map(ownerId => {
             const teammate = teammates.find(t => t.id === ownerId);
             return teammate ? (
               <div key={ownerId} className={`px-2 py-1 rounded-full text-xs font-bold ${teammate.color} text-white flex items-center gap-1`}>
@@ -629,7 +634,7 @@ function EditableCard({
       <div className="mt-2">
         <label className="text-[10px] text-gray-500 uppercase tracking-wide">Tagged Teammates</label>
         <div className="flex flex-wrap items-center gap-2 mt-1">
-          {project.tags?.map(tagId => {
+          {tags.map(tagId => {
             const teammate = teammates.find(t => t.id === tagId);
             return teammate ? (
               <div key={tagId} className={`px-2 py-1 rounded-full text-xs font-bold ${teammate.color} text-white`}>
@@ -666,10 +671,27 @@ function EditableCard({
   );
 }
 
+// Helper function to remove undefined values from objects (Firebase doesn't allow undefined)
+function cleanFirebaseData<T>(data: T): T {
+  if (Array.isArray(data)) {
+    return data.map(item => cleanFirebaseData(item)) as T;
+  } else if (data !== null && typeof data === 'object') {
+    const cleaned: any = {};
+    Object.keys(data).forEach(key => {
+      const value = (data as any)[key];
+      if (value !== undefined) {
+        cleaned[key] = cleanFirebaseData(value);
+      }
+    });
+    return cleaned as T;
+  }
+  return data;
+}
+
 export default function FigJamBoard() {
- const [projects, setProjects] = useState<ProjectCard[]>(initialProjects || []);
- const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows || []);
- const [teammates, setTeammates] = useState<Teammate[]>(initialTeammates || []);
+  const [projects, setProjects] = useState<ProjectCard[]>(initialProjects);
+  const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows);
+  const [teammates, setTeammates] = useState<Teammate[]>(initialTeammates);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [editingRowName, setEditingRowName] = useState('');
   const [showTeammatesManagementModal, setShowTeammatesManagementModal] = useState(false);
@@ -702,15 +724,15 @@ export default function FigJamBoard() {
   useEffect(() => {
     if (!isFirebaseReady) return;
 
-    const projectsRef = ref(db, 'projects');
-    const customRowsRef = ref(db, 'customRows');
-    const teammatesRef = ref(db, 'teammates');
+    const projectsRef = ref(database, 'projects');
+    const customRowsRef = ref(database, 'customRows');
+    const teammatesRef = ref(database, 'teammates');
 
     // Listen for projects changes
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
-      const data = snapshot.val() || [];
+      const data = snapshot.val();
       if (data) {
-        setProjects(data || []);
+        setProjects(data);
       } else {
         // Initialize with default data if empty
         set(projectsRef, initialProjects);
@@ -719,20 +741,19 @@ export default function FigJamBoard() {
 
     // Listen for custom rows changes
     const unsubscribeCustomRows = onValue(customRowsRef, (snapshot) => {
-  const data = snapshot.val() || [];
-  if (data.length > 0) {
-    setCustomRows(data);
-   } else {
-    set(customRowsRef, initialCustomRows);
-   }
-  });
-
+      const data = snapshot.val();
+      if (data) {
+        setCustomRows(data);
+      } else {
+        set(customRowsRef, initialCustomRows);
+      }
+    });
 
     // Listen for teammates changes
     const unsubscribeTeammates = onValue(teammatesRef, (snapshot) => {
-      const data = snapshot.val() || [];
+      const data = snapshot.val();
       if (data) {
-        setTeammates(data || []);
+        setTeammates(data);
       } else {
         set(teammatesRef, initialTeammates);
       }
@@ -746,7 +767,7 @@ export default function FigJamBoard() {
   }, [isFirebaseReady]);
 
   const handleUpdateProject = (id: string, updates: Partial<ProjectCard>) => {
-    const updatedProjects = (projects || []).map((p) => 
+    const updatedProjects = projects.map((p) => 
       p.id === id 
         ? { 
             ...p, 
@@ -756,28 +777,28 @@ export default function FigJamBoard() {
           } 
         : p
     );
-    set(ref(db, 'projects'), updatedProjects);
+    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
-  const handleCardDrop = (cardId: string, priority: string, isCustom: boolean) => {
-    const updatedProjects = (projects || []).map((p) => {
+  const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
+    const updatedProjects = projects.map((p) => {
       if (p.id === cardId) {
         return {
           ...p,
-          priority: "Medium",
-          category: isCustom ? "Medium" : undefined,
+          priority: newPriority,
+          category: isCustom ? newPriority : undefined,
           lastModifiedBy: currentUser,
           lastModifiedAt: Date.now()
         };
       }
       return p;
     });
-    set(ref(db, 'projects'), updatedProjects);
+    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleDeleteProject = (id: string) => {
     const updatedProjects = projects.filter((p) => p.id !== id);
-    set(ref(db, 'projects'), updatedProjects);
+    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleAddNewCard = (priority: string, isCustom: boolean = false) => {
@@ -797,7 +818,7 @@ export default function FigJamBoard() {
       lastModifiedAt: Date.now()
     };
     const updatedProjects = [...projects, newCard];
-    set(ref(db, 'projects'), updatedProjects);
+    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleAddCustomRow = () => {
@@ -807,7 +828,7 @@ export default function FigJamBoard() {
       color: 'bg-indigo-50 border-indigo-200',
     };
     const updatedRows = [...customRows, newRow];
-    set(ref(db, 'customRows'), updatedRows);
+    set(ref(database, 'customRows'), cleanFirebaseData(updatedRows));
   };
 
   const handleDeleteCustomRow = (rowId: string) => {
@@ -815,8 +836,8 @@ export default function FigJamBoard() {
     if (rowToDelete) {
       const updatedProjects = projects.filter(p => p.category !== rowToDelete.name);
       const updatedRows = customRows.filter(r => r.id !== rowId);
-      set(ref(db, 'projects'), updatedProjects);
-      set(ref(db, 'customRows'), updatedRows);
+      set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
+      set(ref(database, 'customRows'), cleanFirebaseData(updatedRows));
     }
   };
 
@@ -827,8 +848,8 @@ export default function FigJamBoard() {
 
   const handleSaveRowName = (rowId: string) => {
     const oldName = customRows.find(r => r.id === rowId)?.name;
-const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRowName } : r);  
-      set(ref(db, 'customRows'), updatedRows);
+    const updatedRows = customRows.map(r => r.id === rowId ? { ...r, name: editingRowName } : r);
+    set(ref(database, 'customRows'), cleanFirebaseData(updatedRows));
     
     if (oldName) {
       const updatedProjects = projects.map(p => 
@@ -836,7 +857,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
           ? { ...p, priority: editingRowName, category: editingRowName, lastModifiedBy: currentUser, lastModifiedAt: Date.now() } 
           : p
       );
-      set(ref(db, 'projects'), updatedProjects);
+      set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
     }
     setEditingRowId(null);
     setEditingRowName('');
@@ -850,14 +871,14 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
         color: teammateColors[teammates.length % teammateColors.length],
       };
       const updatedTeammates = [...teammates, newTeammate];
-      set(ref(db, 'teammates'), updatedTeammates);
+      set(ref(database, 'teammates'), cleanFirebaseData(updatedTeammates));
       setNewTeammateName('');
     }
   };
 
   const handleDeleteTeammate = (teammateId: string) => {
     const updatedTeammates = teammates.filter(t => t.id !== teammateId);
-    set(ref(db, 'teammates'), updatedTeammates);
+    set(ref(database, 'teammates'), cleanFirebaseData(updatedTeammates));
     
     // Remove from all projects
     const updatedProjects = projects.map(p => ({
@@ -867,7 +888,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     }));
-    set(ref(db, 'projects'), updatedProjects);
+    set(ref(database, 'projects'), cleanFirebaseData(updatedProjects));
   };
 
   const handleStartEditingTeammate = (teammateId: string, currentName: string, currentEmail?: string) => {
@@ -883,7 +904,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
         name: editingTeammateName.trim(),
         email: editingTeammateEmail.trim() || undefined
       } : t);
-      set(ref(db, 'teammates'), updatedTeammates);
+      set(ref(database, 'teammates'), cleanFirebaseData(updatedTeammates));
       setEditingTeammateId(null);
       setEditingTeammateName('');
       setEditingTeammateEmail('');
@@ -998,7 +1019,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
                 </div>
                 <div className="flex gap-4 overflow-x-auto pb-2">
                   {groupedProjects[priority]?.length > 0 ? (
-                    (groupedProjects[priority] || []).map((project, index) => (
+                    groupedProjects[priority].map((project, index) => (
                       <div key={project.id} className="flex-shrink-0 w-80">
                         <EditableCard
                           project={project}
@@ -1023,7 +1044,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
           ))}
 
           {/* Custom Rows */}
-          {(customRows || []).map((row, laneIndex) => (
+          {customRows.map((row, laneIndex) => (
             <PriorityRow
               key={row.id}
               priority={row.name}
@@ -1123,7 +1144,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
             </div>
 
             <div className="space-y-2 mb-4">
-              {(teammates || []).map(teammate => (
+              {teammates.map(teammate => (
                 <div key={teammate.id} className="flex flex-col gap-2 px-4 py-3 rounded-lg border-2 border-gray-200">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 ${teammate.color} rounded-full flex items-center justify-center text-white font-bold text-sm`}>
@@ -1234,7 +1255,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
             </div>
             
             <div className="space-y-2 mb-4">
-              {(teammates || []).map(teammate => {
+              {teammates.map(teammate => {
                 const project = projects.find(p => p.id === showOwnerModal);
                 const isOwner = project?.ownerTags?.includes(teammate.id);
                 return (
@@ -1291,7 +1312,7 @@ const updatedRows = customRows.map(r =>r.id === rowId ? { ...r, name: editingRow
             </div>
             
             <div className="space-y-2 mb-4">
-              {(teammates || []).map(teammate => {
+              {teammates.map(teammate => {
                 const project = projects.find(p => p.id === showTagModal);
                 const isTagged = project?.tags?.includes(teammate.id);
                 return (
