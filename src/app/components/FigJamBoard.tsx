@@ -461,7 +461,7 @@ function PriorityRow({
   children: React.ReactNode;
 }) {
   const [{ isOver }, drop] = useDrop(() => ({
-    accept: 'card',
+    accept: ['card', 'sidebar-project'],
     drop: (item: { id: string }) => {
       onDrop(item.id, priority, isCustom);
     },
@@ -795,7 +795,6 @@ function getPriorityInitials(priority: string): string {
 
 export default function FigJamBoard() {
   const [projects, setProjects] = useState<ProjectCard[]>(initialProjects);
-  const [projectsHydrated, setProjectsHydrated] = useState(false);
   const [customRows, setCustomRows] = useState<CustomRow[]>(initialCustomRows);
   const [teammates, setTeammates] = useState<Teammate[]>(initialTeammates);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -835,9 +834,25 @@ export default function FigJamBoard() {
   useEffect(() => {
     if (!isFirebaseReady) return;
     
-    // Only proceed if Firebase is initialized
+    // If Firebase is not configured, initialize with local state + localStorage
     if (!db) {
-      console.error('Firebase database not initialized');
+      console.log('Firebase not configured - using local state with localStorage');
+      
+      // Try to load from localStorage first
+      try {
+        const savedProjects = localStorage.getItem('projects');
+        const savedCustomRows = localStorage.getItem('customRows');
+        const savedTeammates = localStorage.getItem('teammates');
+        
+        setProjects(savedProjects ? JSON.parse(savedProjects) : initialProjects);
+        setCustomRows(savedCustomRows ? JSON.parse(savedCustomRows) : initialCustomRows);
+        setTeammates(savedTeammates ? JSON.parse(savedTeammates) : initialTeammates);
+      } catch (error) {
+        console.error('Error loading from localStorage:', error);
+        setProjects(initialProjects);
+        setCustomRows(initialCustomRows);
+        setTeammates(initialTeammates);
+      }
       return;
     }
 
@@ -845,26 +860,34 @@ export default function FigJamBoard() {
     const customRowsRef = ref(db, 'customRows');
     const teammatesRef = ref(db, 'teammates');
 
-    // Listen for projects changes - FIXED VERSION
+    // Listen for projects changes
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
       const data = snapshot.val();
-      if (data && Array.isArray(data)) {
+      // Safe array guard: only set if data is a valid array
+      if (Array.isArray(data)) {
         setProjects(data);
       } else if (data === null || data === undefined) {
         // Initialize with default data if empty
         set(projectsRef, cleanFirebaseData(initialProjects));
         setProjects(initialProjects);
+      } else {
+        // Fallback for invalid data structure
+        setProjects(initialProjects);
       }
-      setProjectsHydrated(true);
     });
 
     // Listen for custom rows changes
     const unsubscribeCustomRows = onValue(customRowsRef, (snapshot) => {
       const data = snapshot.val();
-      if (data && Array.isArray(data)) {
+      // Safe array guard: only set if data is a valid array
+      if (Array.isArray(data)) {
         setCustomRows(data);
       } else if (data === null || data === undefined) {
+        // Initialize with default data if empty
         set(customRowsRef, cleanFirebaseData(initialCustomRows));
+        setCustomRows(initialCustomRows);
+      } else {
+        // Fallback for invalid data structure
         setCustomRows(initialCustomRows);
       }
     });
@@ -872,10 +895,15 @@ export default function FigJamBoard() {
     // Listen for teammates changes
     const unsubscribeTeammates = onValue(teammatesRef, (snapshot) => {
       const data = snapshot.val();
-      if (data && Array.isArray(data)) {
+      // Safe array guard: only set if data is a valid array
+      if (Array.isArray(data)) {
         setTeammates(data);
       } else if (data === null || data === undefined) {
+        // Initialize with default data if empty
         set(teammatesRef, cleanFirebaseData(initialTeammates));
+        setTeammates(initialTeammates);
+      } else {
+        // Fallback for invalid data structure
         setTeammates(initialTeammates);
       }
     });
@@ -887,12 +915,20 @@ export default function FigJamBoard() {
     };
   }, [isFirebaseReady]);
 
-  // Helper function to safely update Firebase
-  const safeFirebaseSet = (path: string, data: any) => {
+  // Helper function to safely update Firebase or local state
+  const safeFirebaseSet = (path: string, data: any, localSetter?: (data: any) => void) => {
     if (db) {
       set(ref(db, path), cleanFirebaseData(data));
     } else {
-      console.error('Firebase database not initialized');
+      // When Firebase is not available, use localStorage
+      if (localSetter) {
+        localSetter(data);
+      }
+      try {
+        localStorage.setItem(path, JSON.stringify(data));
+      } catch (error) {
+        console.error('Error saving to localStorage:', error);
+      }
     }
   };
 
@@ -907,7 +943,7 @@ export default function FigJamBoard() {
           } 
         : p
     );
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
@@ -923,12 +959,12 @@ export default function FigJamBoard() {
       }
       return p;
     });
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleDeleteProject = (id: string) => {
     const updatedProjects = (projects || []).filter((p) => p.id !== id);
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleAddNewCard = (priority: string, isCustom: boolean = false) => {
@@ -948,7 +984,7 @@ export default function FigJamBoard() {
       lastModifiedAt: Date.now()
     };
     const updatedProjects = [...(projects || []), newCard];
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleAddCustomRow = () => {
@@ -958,7 +994,7 @@ export default function FigJamBoard() {
       color: 'bg-indigo-50 border-indigo-200',
     };
     const updatedRows = [...(customRows || []), newRow];
-    safeFirebaseSet('customRows', updatedRows);
+    safeFirebaseSet('customRows', updatedRows, setCustomRows);
   };
 
   const handleDeleteCustomRow = (rowId: string) => {
@@ -966,8 +1002,8 @@ export default function FigJamBoard() {
     if (rowToDelete) {
       const updatedProjects = (projects || []).filter(p => p.category !== rowToDelete.name);
       const updatedRows = (customRows || []).filter(r => r.id !== rowId);
-      safeFirebaseSet('projects', updatedProjects);
-      safeFirebaseSet('customRows', updatedRows);
+      safeFirebaseSet('projects', updatedProjects, setProjects);
+      safeFirebaseSet('customRows', updatedRows, setCustomRows);
     }
   };
 
@@ -979,7 +1015,7 @@ export default function FigJamBoard() {
   const handleSaveRowName = (rowId: string) => {
     const oldName = (customRows || []).find(r => r.id === rowId)?.name;
     const updatedRows = (customRows || []).map(r => r.id === rowId ? { ...r, name: editingRowName } : r);
-    safeFirebaseSet('customRows', updatedRows);
+    safeFirebaseSet('customRows', updatedRows, setCustomRows);
     
     if (oldName) {
       const updatedProjects = (projects || []).map(p => 
@@ -987,7 +1023,7 @@ export default function FigJamBoard() {
           ? { ...p, priority: editingRowName, category: editingRowName, lastModifiedBy: currentUser, lastModifiedAt: Date.now() } 
           : p
       );
-      safeFirebaseSet('projects', updatedProjects);
+      safeFirebaseSet('projects', updatedProjects, setProjects);
     }
     setEditingRowId(null);
     setEditingRowName('');
@@ -1001,14 +1037,14 @@ export default function FigJamBoard() {
         color: teammateColors[(teammates || []).length % teammateColors.length],
       };
       const updatedTeammates = [...(teammates || []), newTeammate];
-      safeFirebaseSet('teammates', updatedTeammates);
+      safeFirebaseSet('teammates', updatedTeammates, setTeammates);
       setNewTeammateName('');
     }
   };
 
   const handleDeleteTeammate = (teammateId: string) => {
     const updatedTeammates = (teammates || []).filter(t => t.id !== teammateId);
-    safeFirebaseSet('teammates', updatedTeammates);
+    safeFirebaseSet('teammates', updatedTeammates, setTeammates);
     
     // Remove from all projects
     const updatedProjects = (projects || []).map(p => ({
@@ -1018,7 +1054,7 @@ export default function FigJamBoard() {
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     }));
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleStartEditingTeammate = (teammateId: string, currentName: string, currentEmail?: string) => {
@@ -1034,7 +1070,7 @@ export default function FigJamBoard() {
         name: editingTeammateName.trim(),
         email: editingTeammateEmail.trim() || undefined
       } : t);
-      safeFirebaseSet('teammates', updatedTeammates);
+      safeFirebaseSet('teammates', updatedTeammates, setTeammates);
       setEditingTeammateId(null);
       setEditingTeammateName('');
       setEditingTeammateEmail('');
@@ -1133,11 +1169,44 @@ export default function FigJamBoard() {
     const targetProject = (projects || []).find(p => p.id === targetId);
     
     if (draggedProject && targetProject) {
-      // Update priority to match target
-      handleUpdateProject(draggedId, { 
+      const allProjects = [...(projects || [])];
+      
+      // Get projects in target's priority, sorted
+      const samePriorityProjects = allProjects
+        .filter(p => p.priority === targetProject.priority)
+        .sort((a, b) => a.lineNumber - b.lineNumber);
+      
+      // Remove dragged if already in this priority
+      const withoutDragged = samePriorityProjects.filter(p => p.id !== draggedId);
+      
+      // Find where to insert
+      const targetIdx = withoutDragged.findIndex(p => p.id === targetId);
+      
+      // Create updated dragged project
+      const newDragged = {
+        ...draggedProject,
         priority: targetProject.priority,
-        category: targetProject.category 
+        category: targetProject.category,
+        lastModifiedBy: currentUser,
+        lastModifiedAt: Date.now()
+      };
+      
+      // Insert at target position
+      withoutDragged.splice(targetIdx, 0, newDragged);
+      
+      // Recalculate lineNumbers for this priority only
+      withoutDragged.forEach((p, idx) => {
+        p.lineNumber = idx + 1;
       });
+      
+      // Merge back with other priorities
+      const otherProjects = allProjects.filter(p => 
+        p.priority !== targetProject.priority && p.id !== draggedId
+      );
+      
+      const finalProjects = [...otherProjects, ...withoutDragged];
+      
+      safeFirebaseSet('projects', finalProjects, setProjects);
     }
   };
 
