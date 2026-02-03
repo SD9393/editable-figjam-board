@@ -1189,15 +1189,35 @@ export default function FigJamBoard() {
               {(projects || []).length} PROJECTS
             </div>
             <div className="space-y-1">
-              {getSortedProjectsForSidebar().map((project) => (
-                <SidebarProjectItem
-                  key={project.id}
-                  project={project}
-                  onDrop={handleSidebarProjectDrop}
-                  onClick={() => scrollToProject(project.id)}
-                  isHighlighted={highlightedProjectId === project.id}
-                />
-              ))}
+              {getSortedProjectsForSidebar().map((project, index, array) => {
+                const previousProject = index > 0 ? array[index - 1] : null;
+                const showDivider = previousProject && previousProject.priority !== project.priority;
+                
+                return (
+                  <div key={project.id}>
+                    {showDivider && (
+                      <div className="flex items-center gap-2 py-2 px-2">
+                        <div className="flex-1 h-px bg-gray-300"></div>
+                        <span className="text-xs font-bold text-gray-600">{project.priority}</span>
+                        <div className="flex-1 h-px bg-gray-300"></div>
+                      </div>
+                    )}
+                    {index === 0 && (
+                      <div className="flex items-center gap-2 py-2 px-2">
+                        <div className="flex-1 h-px bg-gray-300"></div>
+                        <span className="text-xs font-bold text-gray-600">{project.priority}</span>
+                        <div className="flex-1 h-px bg-gray-300"></div>
+                      </div>
+                    )}
+                    <SidebarProjectItem
+                      project={project}
+                      onDrop={handleSidebarProjectDrop}
+                      onClick={() => scrollToProject(project.id)}
+                      isHighlighted={highlightedProjectId === project.id}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
