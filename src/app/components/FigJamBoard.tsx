@@ -758,7 +758,7 @@ export default function FigJamBoard() {
     set(ref(db, 'projects'), updatedProjects);
   };
 
-  const handleCardDrop = (cardId: string, priority,: string, isCustom: boolean) => {
+  const handleCardDrop = (cardId: string, priority: string, isCustom: boolean) => {
     const updatedProjects = projects.map((p) => {
       if (p.id === cardId) {
         return {
