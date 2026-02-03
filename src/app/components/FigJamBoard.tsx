@@ -899,13 +899,15 @@ export default function FigJamBoard() {
   }, [isFirebaseReady]);
 
   // Helper function to safely update Firebase or local state
-  const safeFirebaseSet = (path: string, data: any, localSetter?: (data: any) => void) => {
-    if (db) {
-      set(ref(db, path), cleanFirebaseData(data));
-    } else if (localSetter) {
-      localSetter(data);
-    }
-  };
+ const safeFirebaseSet = (path: string, data: any, localSetter?: (data: any) => void) => {
+  if (localSetter) {
+    localSetter(data);   // ✅ immediate UI update
+  }
+
+  if (db) {
+    set(ref(db, path), cleanFirebaseData(data)); // ✅ persist
+  }
+ };
 
   const handleUpdateProject = (id: string, updates: Partial<ProjectCard>) => {
     const updatedProjects = (projects || []).map((p) => 
