@@ -837,6 +837,7 @@ export default function FigJamBoard() {
     
     // Only proceed if Firebase is initialized
     if (!db) {
+      console.error('Firebase database not initialized');
       return;
     }
 
@@ -844,29 +845,26 @@ export default function FigJamBoard() {
     const customRowsRef = ref(db, 'customRows');
     const teammatesRef = ref(db, 'teammates');
 
-    // Listen for projects changes
+    // Listen for projects changes - FIXED VERSION
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
-    const data = snapshot.val();
-   if (Array.isArray(data)) {
-    setProjects(data);
-   }
-   setProjectsHydrated(true);
- });
-
-
+      const data = snapshot.val();
+      if (data && Array.isArray(data)) {
+        setProjects(data);
+      } else if (data === null || data === undefined) {
+        // Initialize with default data if empty
+        set(projectsRef, cleanFirebaseData(initialProjects));
+        setProjects(initialProjects);
+      }
+      setProjectsHydrated(true);
+    });
 
     // Listen for custom rows changes
     const unsubscribeCustomRows = onValue(customRowsRef, (snapshot) => {
       const data = snapshot.val();
-      // Safe array guard: only set if data is a valid array
-      if (Array.isArray(data)) {
+      if (data && Array.isArray(data)) {
         setCustomRows(data);
       } else if (data === null || data === undefined) {
-        // Initialize with default data if empty
         set(customRowsRef, cleanFirebaseData(initialCustomRows));
-        setCustomRows(initialCustomRows);
-      } else {
-        // Fallback for invalid data structure
         setCustomRows(initialCustomRows);
       }
     });
@@ -874,15 +872,10 @@ export default function FigJamBoard() {
     // Listen for teammates changes
     const unsubscribeTeammates = onValue(teammatesRef, (snapshot) => {
       const data = snapshot.val();
-      // Safe array guard: only set if data is a valid array
-      if (Array.isArray(data)) {
+      if (data && Array.isArray(data)) {
         setTeammates(data);
       } else if (data === null || data === undefined) {
-        // Initialize with default data if empty
         set(teammatesRef, cleanFirebaseData(initialTeammates));
-        setTeammates(initialTeammates);
-      } else {
-        // Fallback for invalid data structure
         setTeammates(initialTeammates);
       }
     });
@@ -894,12 +887,14 @@ export default function FigJamBoard() {
     };
   }, [isFirebaseReady]);
 
-  // Helper function to safely update Firebase or local state
-   const safeFirebaseSet = (path: string, data: any) => {
-   if (db) {
-    set(ref(db, path), cleanFirebaseData(data));
-   }
- }; 
+  // Helper function to safely update Firebase
+  const safeFirebaseSet = (path: string, data: any) => {
+    if (db) {
+      set(ref(db, path), cleanFirebaseData(data));
+    } else {
+      console.error('Firebase database not initialized');
+    }
+  };
 
   const handleUpdateProject = (id: string, updates: Partial<ProjectCard>) => {
     const updatedProjects = (projects || []).map((p) => 
@@ -963,7 +958,7 @@ export default function FigJamBoard() {
       color: 'bg-indigo-50 border-indigo-200',
     };
     const updatedRows = [...(customRows || []), newRow];
-    safeFirebaseSet('customRows', updatedRows, setCustomRows);
+    safeFirebaseSet('customRows', updatedRows);
   };
 
   const handleDeleteCustomRow = (rowId: string) => {
@@ -972,7 +967,7 @@ export default function FigJamBoard() {
       const updatedProjects = (projects || []).filter(p => p.category !== rowToDelete.name);
       const updatedRows = (customRows || []).filter(r => r.id !== rowId);
       safeFirebaseSet('projects', updatedProjects);
-      safeFirebaseSet('customRows', updatedRows, setCustomRows);
+      safeFirebaseSet('customRows', updatedRows);
     }
   };
 
@@ -984,7 +979,7 @@ export default function FigJamBoard() {
   const handleSaveRowName = (rowId: string) => {
     const oldName = (customRows || []).find(r => r.id === rowId)?.name;
     const updatedRows = (customRows || []).map(r => r.id === rowId ? { ...r, name: editingRowName } : r);
-    safeFirebaseSet('customRows', updatedRows, setCustomRows);
+    safeFirebaseSet('customRows', updatedRows);
     
     if (oldName) {
       const updatedProjects = (projects || []).map(p => 
@@ -1006,14 +1001,14 @@ export default function FigJamBoard() {
         color: teammateColors[(teammates || []).length % teammateColors.length],
       };
       const updatedTeammates = [...(teammates || []), newTeammate];
-      safeFirebaseSet('teammates', updatedTeammates, setTeammates);
+      safeFirebaseSet('teammates', updatedTeammates);
       setNewTeammateName('');
     }
   };
 
   const handleDeleteTeammate = (teammateId: string) => {
     const updatedTeammates = (teammates || []).filter(t => t.id !== teammateId);
-    safeFirebaseSet('teammates', updatedTeammates, setTeammates);
+    safeFirebaseSet('teammates', updatedTeammates);
     
     // Remove from all projects
     const updatedProjects = (projects || []).map(p => ({
@@ -1039,7 +1034,7 @@ export default function FigJamBoard() {
         name: editingTeammateName.trim(),
         email: editingTeammateEmail.trim() || undefined
       } : t);
-      safeFirebaseSet('teammates', updatedTeammates, setTeammates);
+      safeFirebaseSet('teammates', updatedTeammates);
       setEditingTeammateId(null);
       setEditingTeammateName('');
       setEditingTeammateEmail('');
