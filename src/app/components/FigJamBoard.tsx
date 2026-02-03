@@ -850,6 +850,7 @@ export default function FigJamBoard() {
    if (Array.isArray(data)) {
     setProjects(data);
    }
+   setProjectsHydrated(true);
  });
 
 
