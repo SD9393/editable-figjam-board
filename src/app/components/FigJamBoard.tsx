@@ -3,6 +3,7 @@ import { useDrag, useDrop } from 'react-dnd';
 import { GripVertical, Plus, X, Edit2, Check, Users, Calendar, Trash2, HelpCircle, ChevronLeft, ChevronRight, Package, Tag, Filter, Sun, Moon } from 'lucide-react';
 import { db } from '@/config/firebase';
 import { ref, set, onValue, update, onDisconnect, serverTimestamp, remove } from 'firebase/database';
+import redwoodBg from 'figma:asset/8675ea21bf0e45a633c53002cd3d1d28507355e4.png';
 
 // ========================================
 // Oracle Redwood Design System Color Palette
@@ -457,13 +458,20 @@ function SidebarProjectItem({
   isHighlighted: boolean;
   isDarkTheme?: boolean;
 }) {
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: 'sidebar-project',
-    item: { id: project.id },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  }), [project.id]);
+  const [{ isDragging }, drag] = useDrag(() => {
+    console.log('📋 Creating drag item for SidebarProjectItem:', {
+      id: project.id,
+      name: project.projectName,
+      priority: project.priority
+    });
+    return {
+      type: 'sidebar-project',
+      item: { id: project.id },
+      collect: (monitor) => ({
+        isDragging: monitor.isDragging(),
+      }),
+    };
+  }, [project.id]);
 
   const [{ isOver }, drop] = useDrop(() => ({
     accept: 'sidebar-project',
@@ -522,7 +530,7 @@ function PriorityRow({
   children: React.ReactNode;
 }) {
   const [{ isOver }, drop] = useDrop(() => ({
-    accept: ['card', 'sidebar-project'],
+    accept: ['sidebar-project'], // Only accept drops from sidebar, not from main board cards
     drop: (item: { id: string }) => {
       onDrop(item.id, priority, isCustom);
     },
@@ -537,6 +545,119 @@ function PriorityRow({
       className={`transition-all ${isOver ? 'ring-4 ring-blue-400 ring-opacity-50' : ''}`}
     >
       {children}
+    </div>
+  );
+}
+
+function SidebarPrioritySection({
+  priority,
+  isCustom,
+  projects,
+  onDrop,
+  onClick,
+  highlightedProjectId,
+  isDarkTheme
+}: {
+  priority: string;
+  isCustom: boolean;
+  projects: ProjectCard[];
+  onDrop: (draggedId: string, targetId: string) => void;
+  onClick: (projectId: string) => void;
+  highlightedProjectId: string | null;
+  isDarkTheme: boolean;
+}) {
+  const [{ isOver }, drop] = useDrop(() => ({
+    accept: 'sidebar-project',
+    drop: (item: { id: string }) => {
+      // If there are projects in this section, drop on the first one
+      // Otherwise, we need to handle priority change
+      if (projects.length > 0) {
+        onDrop(item.id, projects[0].id);
+      } else {
+        // For empty sections, we'll trigger a priority change
+        // by using a special marker to indicate this is a priority change
+        onDrop(item.id, `__priority_change__${priority}__${isCustom}`);
+      }
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  }), [projects, priority, isCustom, onDrop]);
+
+  const priorityColorMap: Record<string, string> = {
+    P0: '#C74634',
+    P1: '#F57C00',
+    P2: '#F9A825',
+    P3: '#2E7D32',
+    P4: '#0572CE',
+    Planned: '#803D99',
+    'In Discussions': '#00A3AD',
+    Backlog: '#78716C',
+  };
+
+  const bgColor = priorityColorMap[priority] || '#78716C';
+
+  return (
+    <div
+      ref={drop}
+      className={`mb-1 ${isOver ? 'ring-2 ring-blue-400 ring-opacity-75 rounded' : ''}`}
+    >
+      {/* Priority Header */}
+      <div 
+        className="flex items-center gap-2 py-2 px-2"
+        style={{ 
+          backgroundColor: isOver ? `${bgColor}15` : 'transparent',
+          transition: 'background-color 0.2s'
+        }}
+      >
+        <div 
+          className="w-1 h-4 rounded-full" 
+          style={{ backgroundColor: bgColor }}
+        ></div>
+        <span 
+          className={`text-xs font-bold ${isDarkTheme ? 'text-gray-300' : 'text-gray-700'}`}
+          style={{ color: isDarkTheme ? undefined : bgColor }}
+        >
+          {priority}
+        </span>
+        <span className={`text-xs ${isDarkTheme ? 'text-gray-500' : 'text-gray-400'}`}>
+          ({projects.length})
+        </span>
+        <div className={`flex-1 h-px ${isDarkTheme ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
+      </div>
+      
+      {/* Projects in this priority */}
+      {projects.length > 0 ? (
+        <div className="space-y-0.5">
+          {projects.map((project) => (
+            <SidebarProjectItem
+              key={project.id}
+              project={project}
+              onDrop={onDrop}
+              onClick={() => onClick(project.id)}
+              isHighlighted={highlightedProjectId === project.id}
+              isDarkTheme={isDarkTheme}
+            />
+          ))}
+        </div>
+      ) : (
+        <div 
+          className={`mx-2 mb-2 px-3 py-2 rounded border-2 border-dashed text-center text-xs ${
+            isOver 
+              ? isDarkTheme
+                ? 'border-blue-400 bg-blue-900 text-blue-300'
+                : 'border-blue-400 bg-blue-50 text-blue-600'
+              : isDarkTheme 
+                ? 'border-gray-600 text-gray-500' 
+                : 'border-gray-300 text-gray-400'
+          }`}
+          style={{
+            transition: 'all 0.2s'
+          }}
+        >
+          {isOver ? 'Drop here' : 'No projects'}
+        </div>
+      )}
     </div>
   );
 }
@@ -570,13 +691,9 @@ function EditableCard({
   isHighlighted?: boolean;
   isDarkTheme?: boolean;
 }) {
-  const [{ isDragging }, drag] = useDrag(() => ({
-    type: 'card',
-    item: { id: project.id },
-    collect: (monitor) => ({
-      isDragging: monitor.isDragging(),
-    }),
-  }));
+  // REMOVED: Drag and drop functionality for main board cards
+  // Cards can no longer be dragged between priority rows
+  // Reordering is now only available through the sidebar
 
   // Ensure arrays always exist (Firebase might not have them if they were empty)
   const subtasks = project.subtasks || [];
@@ -649,13 +766,9 @@ function EditableCard({
   return (
     <div
       ref={(node) => {
-        drag(node);
         if (cardRef) {
           (cardRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
         }
-      }}
-      style={{
-        opacity: isDragging ? 0.5 : 1,
       }}
       className={`rounded-lg shadow-md p-5 border-2 hover:shadow-lg transition-all ${
         isDarkTheme ? 'bg-gray-800' : 'bg-white'
@@ -665,10 +778,9 @@ function EditableCard({
           : isDarkTheme ? 'border-gray-700' : 'border-gray-200'
       }`}
     >
-      {/* Header with drag handle, priority, tags and delete button */}
+      {/* Header with priority, tags and delete button */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <GripVertical className="text-gray-400 w-5 h-5 cursor-move" />
           <span 
             className="px-2.5 py-0.5 rounded-full text-xs font-bold border-2"
             style={priorityColors[project.priority] || { backgroundColor: '#f3f4f6', color: '#374151', borderColor: '#d1d5db' }}
@@ -767,7 +879,7 @@ function EditableCard({
             return (
               <div 
                 key={ownerId} 
-                className="px-3 py-1 rounded-full text-xs font-bold text-white flex items-center gap-1"
+                className="px-3 py-1 rounded-full text-xs font-semibold text-white"
                 style={{ backgroundColor: hexColor }}
               >
                 {teammate.name}
@@ -859,11 +971,11 @@ function EditableCard({
             return (
               <div 
                 key={tagId} 
-                className="w-7 h-7 rounded-full text-xs font-bold text-white flex items-center justify-center" 
+                className="px-3 py-1 rounded-full text-xs font-semibold text-white" 
                 style={{ backgroundColor: hexColor }}
                 title={teammate.name}
               >
-                {teammate.name.charAt(0).toUpperCase()}
+                {teammate.name}
               </div>
             );
           })}
@@ -899,8 +1011,17 @@ function EditableCard({
 // Helper function to remove undefined values from objects (Firebase doesn't allow undefined)
 function cleanFirebaseData<T>(data: T): T {
   if (Array.isArray(data)) {
-    const cleaned = data.map(item => cleanFirebaseData(item)) as T;
-    console.log('🧹 cleanFirebaseData array:', { inputLength: data.length, outputLength: (cleaned as any).length });
+    // CRITICAL: Filter out null/undefined items BEFORE cleaning
+    const filtered = data.filter(item => item !== null && item !== undefined);
+    const cleaned = filtered.map(item => cleanFirebaseData(item)) as T;
+    console.log('🧹 cleanFirebaseData array:', { 
+      inputLength: data.length, 
+      filteredLength: filtered.length,
+      outputLength: (cleaned as any).length 
+    });
+    if (filtered.length !== data.length) {
+      console.warn('⚠️ cleanFirebaseData: Removed', data.length - filtered.length, 'null/undefined items from array');
+    }
     return cleaned;
   } else if (data !== null && typeof data === 'object') {
     const cleaned: any = {};
@@ -974,6 +1095,13 @@ export default function FigJamBoard() {
   
   // Create refs for all project cards
   const projectRefs = useRef<Record<string, React.RefObject<HTMLDivElement>>>({});
+  
+  // Track drops in progress to prevent race conditions
+  const dropsInProgress = useRef<Set<string>>(new Set());
+  
+  // Track the last local update timestamp to prevent Firebase from overwriting with stale data
+  const lastLocalUpdateTimestamp = useRef<number>(0);
+  const ignoreFirebaseUpdatesUntil = useRef<number>(0);
 
   // Initialize user on mount
   useEffect(() => {
@@ -1078,6 +1206,16 @@ export default function FigJamBoard() {
       console.log('🔥 Firebase projects snapshot received:', data);
       console.log('🔥 Data type:', typeof data, 'Is array?', Array.isArray(data));
       console.log('🔥 Data is null/undefined?', data === null || data === undefined);
+      
+      // Check if we should ignore this Firebase update (to prevent overwriting recent local changes)
+      const now = Date.now();
+      if (now < ignoreFirebaseUpdatesUntil.current) {
+        console.log('⏸️ Ignoring Firebase projects update - recent local update in progress');
+        console.log('⏸️ Will resume listening in:', ignoreFirebaseUpdatesUntil.current - now, 'ms');
+        projectsLoaded = true;
+        checkAllLoaded();
+        return; // Skip this update
+      }
       
       if (data === null || data === undefined) {
         // Allow empty state - don't restore default data
@@ -1201,6 +1339,28 @@ export default function FigJamBoard() {
     setAvailableProjectTags(Array.from(allTags).sort());
   }, [projects]);
 
+  // Ensure all teammates have colors assigned
+  useEffect(() => {
+    if (!teammates || teammates.length === 0) return;
+    
+    let needsUpdate = false;
+    const updatedTeammates = teammates.map((teammate, index) => {
+      if (!teammate.color) {
+        needsUpdate = true;
+        return {
+          ...teammate,
+          color: teammateColors[index % teammateColors.length]
+        };
+      }
+      return teammate;
+    });
+    
+    if (needsUpdate) {
+      console.log('🎨 Assigning colors to teammates without colors');
+      safeFirebaseSet('teammates', updatedTeammates, setTeammates);
+    }
+  }, [teammates]);
+
   // Helper function to safely update Firebase or local state
   const safeFirebaseSet = (path: string, data: any, localSetter?: (data: any) => void) => {
     console.log(`💾 safeFirebaseSet called for path: "${path}"`, {
@@ -1216,12 +1376,31 @@ export default function FigJamBoard() {
         dataLength: Array.isArray(data) ? data.length : 'N/A'
       });
       localSetter(data);
+      
+      // Ignore Firebase listener updates for 500ms to prevent stale data from overwriting
+      if (path === 'projects') {
+        ignoreFirebaseUpdatesUntil.current = Date.now() + 500;
+        console.log(`⏸️ Ignoring Firebase updates for projects until:`, new Date(ignoreFirebaseUpdatesUntil.current).toLocaleTimeString());
+      }
     }
     
     if (db) {
       const cleanedData = cleanFirebaseData(data);
+      
+      // Verify cleaned data is valid before writing to Firebase
+      if (Array.isArray(data) && Array.isArray(cleanedData)) {
+        if (cleanedData.length !== data.length) {
+          console.error('⚠️ cleanFirebaseData corrupted array!', {
+            originalLength: data.length,
+            cleanedLength: cleanedData.length,
+            path
+          });
+        }
+      }
+      
       console.log(`💾 Writing to Firebase path: "${path}"`, {
-        cleanedDataLength: Array.isArray(cleanedData) ? cleanedData.length : 'N/A'
+        cleanedDataLength: Array.isArray(cleanedData) ? cleanedData.length : 'N/A',
+        originalDataLength: Array.isArray(data) ? data.length : 'N/A'
       });
       set(ref(db, path), cleanedData);
     } else {
@@ -1250,6 +1429,13 @@ export default function FigJamBoard() {
 
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
     console.log('🎯 handleCardDrop called:', { cardId, newPriority, isCustom });
+    
+    // Prevent race conditions - check if this card is already being dropped
+    if (dropsInProgress.current.has(cardId)) {
+      console.warn('⚠️ Drop already in progress for card:', cardId, '- ignoring duplicate drop');
+      return;
+    }
+    
     console.log('🎯 Current projects count:', (projects || []).length);
     console.log('🎯 Current project IDs:', (projects || []).map(p => p.id));
     console.log('🎯 Looking for card with ID:', cardId);
@@ -1257,36 +1443,75 @@ export default function FigJamBoard() {
     const cardExists = (projects || []).find(p => p.id === cardId);
     console.log('🎯 Card found?', cardExists ? 'YES' : 'NO', cardExists);
     
+    if (!cardExists) {
+      console.error('❌ handleCardDrop: Card not found!', cardId);
+      console.error('❌ Available card IDs:', (projects || []).map(p => ({ id: p.id, name: p.projectName })));
+      console.error('❌ This can happen if:');
+      console.error('   1. The card was deleted while being dragged');
+      console.error('   2. A Firebase sync removed/updated the card mid-drag');
+      console.error('   3. The drag event fired after the card was already moved');
+      console.error('   4. There is a race condition between multiple drops');
+      return; // Don't proceed if card doesn't exist
+    }
+    
+    // Check if card is already in the target priority
+    if (isCustom && cardExists.category === newPriority && cardExists.priority === newPriority) {
+      console.log('⚠️ Card already in target custom row:', newPriority, '- skipping update');
+      return;
+    }
+    if (!isCustom && cardExists.priority === newPriority && !cardExists.category) {
+      console.log('⚠️ Card already in target priority:', newPriority, '- skipping update');
+      return;
+    }
+    
+    // Mark this card as being dropped
+    dropsInProgress.current.add(cardId);
+    console.log('🔒 Locked card for dropping:', cardId);
+    
     const updatedProjects = (projects || []).map((p) => {
       if (p.id === cardId) {
         console.log('🎯 Updating card:', p.id, 'from priority:', p.priority, 'category:', p.category, 'to:', newPriority, 'isCustom:', isCustom);
         
         // For custom rows: set both priority and category to the row name
-        // For standard priorities: set priority only, clear category
-        const updates = isCustom 
-          ? {
-              ...p,
-              priority: newPriority,    // Set priority to custom row name
-              category: newPriority,    // Set category to custom row name
-              lastModifiedBy: currentUser,
-              lastModifiedAt: Date.now()
-            }
-          : {
-              ...p,
-              priority: newPriority,   // Set priority for standard rows (P0-P4)
-              category: undefined,     // Clear category
-              lastModifiedBy: currentUser,
-              lastModifiedAt: Date.now()
-            };
+        // For standard priorities: set priority only, REMOVE category property completely
+        let updates;
+        if (isCustom) {
+          updates = {
+            ...p,
+            priority: newPriority,    // Set priority to custom row name
+            category: newPriority,    // Set category to custom row name
+            lastModifiedBy: currentUser,
+            lastModifiedAt: Date.now()
+          };
+        } else {
+          // For standard priorities, create new object WITHOUT category property
+          const { category, ...restOfProject } = p;
+          updates = {
+            ...restOfProject,
+            priority: newPriority,   // Set priority for standard rows (P0-P4)
+            lastModifiedBy: currentUser,
+            lastModifiedAt: Date.now()
+          };
+        }
         
         console.log('🎯 Updated card:', updates);
+        console.log('🎯 Has category?', 'category' in updates, updates.category);
         return updates;
       }
       return p;
     });
+    
     console.log('🎯 Updated projects count after drop:', updatedProjects.length);
     console.log('🎯 Updated project IDs:', updatedProjects.map(p => p.id));
+    console.log('🎯 Calling safeFirebaseSet with', updatedProjects.length, 'projects');
+    
     safeFirebaseSet('projects', updatedProjects, setProjects);
+    
+    // Unlock the card after a short delay to allow the operation to complete
+    setTimeout(() => {
+      dropsInProgress.current.delete(cardId);
+      console.log('🔓 Unlocked card after drop:', cardId);
+    }, 100);
   };
 
   const handleDeleteProject = (id: string) => {
@@ -1324,6 +1549,8 @@ export default function FigJamBoard() {
     const updatedProjects = [...(projects || []), newCard];
     console.log('➕ Total projects after adding:', updatedProjects.length);
     console.log('➕ All project IDs:', updatedProjects.map(p => p.id));
+    console.log('➕ New card being added with ID:', newCard.id);
+    console.log('➕ This ID should now be draggable');
     safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
@@ -1439,19 +1666,19 @@ export default function FigJamBoard() {
 
   // Oracle Redwood priority row background colors
   const priorityRowStyles: Record<string, React.CSSProperties> = isDarkTheme ? {
-    // Dark mode: darker backgrounds (P0 has no background color)
-    P0: { borderColor: OracleColors.primary.red },
-    P1: { borderColor: OracleColors.primary.orange },
-    P2: { borderColor: OracleColors.primary.olive },
-    P3: { borderColor: OracleColors.primary.green },
-    P4: { borderColor: OracleColors.primary.blue },
+    // Dark mode: darker backgrounds with semi-transparent tint
+    P0: { borderColor: OracleColors.primary.red, backgroundColor: 'rgba(30, 30, 35, 0.85)' },
+    P1: { borderColor: OracleColors.primary.orange, backgroundColor: 'rgba(30, 30, 35, 0.85)' },
+    P2: { borderColor: OracleColors.primary.olive, backgroundColor: 'rgba(30, 30, 35, 0.85)' },
+    P3: { borderColor: OracleColors.primary.green, backgroundColor: 'rgba(30, 30, 35, 0.85)' },
+    P4: { borderColor: OracleColors.primary.blue, backgroundColor: 'rgba(30, 30, 35, 0.85)' },
   } : {
-    // Light mode: lighter backgrounds (P0 has no background color)
-    P0: { borderColor: OracleColors.primary.red },
-    P1: { borderColor: OracleColors.primary.orange },
-    P2: { borderColor: OracleColors.primary.olive },
-    P3: { borderColor: OracleColors.primary.green },
-    P4: { borderColor: OracleColors.primary.blue },
+    // Light mode: light tinted backgrounds
+    P0: { borderColor: OracleColors.primary.red, backgroundColor: 'rgba(255, 255, 255, 0.85)' },
+    P1: { borderColor: OracleColors.primary.orange, backgroundColor: 'rgba(255, 255, 255, 0.85)' },
+    P2: { borderColor: OracleColors.primary.olive, backgroundColor: 'rgba(255, 255, 255, 0.85)' },
+    P3: { borderColor: OracleColors.primary.green, backgroundColor: 'rgba(255, 255, 255, 0.85)' },
+    P4: { borderColor: OracleColors.primary.blue, backgroundColor: 'rgba(255, 255, 255, 0.85)' },
   };
 
   const priorityLabels: Record<string, { label: string; style: React.CSSProperties }> = isDarkTheme ? {
@@ -1484,22 +1711,22 @@ export default function FigJamBoard() {
 
   // Oracle Redwood custom row background colors
   const customRowBackgrounds: Record<string, React.CSSProperties> = isDarkTheme ? {
-    // Dark mode: no background colors, only borders
-    Planned: { borderColor: OracleColors.primary.purple },
-    'In Discussions': { borderColor: OracleColors.primary.teal },
-    Backlog: { borderColor: OracleColors.primary.gray },
+    // Dark mode: darker backgrounds with semi-transparent tint
+    Planned: { borderColor: OracleColors.primary.purple, backgroundColor: 'rgba(30, 30, 35, 0.85)' },
+    'In Discussions': { borderColor: OracleColors.primary.teal, backgroundColor: 'rgba(30, 30, 35, 0.85)' },
+    Backlog: { borderColor: OracleColors.primary.gray, backgroundColor: 'rgba(30, 30, 35, 0.85)' },
   } : {
-    // Light mode: no background colors, only borders
-    Planned: { borderColor: OracleColors.primary.purple },
-    'In Discussions': { borderColor: OracleColors.primary.teal },
-    Backlog: { borderColor: OracleColors.primary.gray },
+    // Light mode: light tinted backgrounds
+    Planned: { borderColor: OracleColors.primary.purple, backgroundColor: 'rgba(255, 255, 255, 0.85)' },
+    'In Discussions': { borderColor: OracleColors.primary.teal, backgroundColor: 'rgba(255, 255, 255, 0.85)' },
+    Backlog: { borderColor: OracleColors.primary.gray, backgroundColor: 'rgba(255, 255, 255, 0.85)' },
   };
 
   // Helper function to get row background color
   const getCustomRowBgColor = (rowName: string): React.CSSProperties => {
     return customRowBackgrounds[rowName] || (isDarkTheme 
-      ? { borderColor: OracleColors.primary.navy }
-      : { borderColor: OracleColors.primary.navy });
+      ? { borderColor: OracleColors.primary.navy, backgroundColor: 'rgba(30, 30, 35, 0.85)' }
+      : { borderColor: OracleColors.primary.navy, backgroundColor: 'rgba(255, 255, 255, 0.85)' });
   };
 
   // Initialize refs for all projects
@@ -1564,8 +1791,78 @@ export default function FigJamBoard() {
   // Handle project reorder from sidebar
   const handleSidebarProjectDrop = (draggedId: string, targetId: string) => {
     console.log('📍 handleSidebarProjectDrop called:', { draggedId, targetId });
+    
+    // Prevent race conditions
+    if (dropsInProgress.current.has(draggedId)) {
+      console.warn('⚠️ Drop already in progress for card:', draggedId, '- ignoring duplicate drop');
+      return;
+    }
+    
     const draggedProject = (projects || []).find(p => p.id === draggedId);
+    
+    if (!draggedProject) {
+      console.error('❌ handleSidebarProjectDrop: Dragged project not found!', draggedId);
+      return;
+    }
+    
+    // Check if this is a priority change marker (for empty priority sections)
+    if (targetId.startsWith('__priority_change__')) {
+      const parts = targetId.replace('__priority_change__', '').split('__');
+      const newPriority = parts[0];
+      const isCustom = parts[1] === 'true';
+      
+      console.log('📍 Priority change detected:', { newPriority, isCustom });
+      
+      // Mark as in progress
+      dropsInProgress.current.add(draggedId);
+      console.log('🔒 Locked card for priority change:', draggedId);
+      
+      // Update project priority
+      const updatedProjects = (projects || []).map((p) => {
+        if (p.id === draggedId) {
+          if (isCustom) {
+            return { 
+              ...p, 
+              priority: newPriority, 
+              category: newPriority,
+              lastModifiedBy: currentUser,
+              lastModifiedAt: Date.now()
+            };
+          } else {
+            // Remove category for standard priorities
+            const { category, ...rest } = p;
+            return { 
+              ...rest, 
+              priority: newPriority,
+              lastModifiedBy: currentUser,
+              lastModifiedAt: Date.now()
+            };
+          }
+        }
+        return p;
+      });
+      
+      safeFirebaseSet('projects', updatedProjects, setProjects);
+      
+      // Unlock after a short delay
+      setTimeout(() => {
+        dropsInProgress.current.delete(draggedId);
+        console.log('🔓 Unlocked card after priority change:', draggedId);
+      }, 500);
+      
+      return;
+    }
+    
     const targetProject = (projects || []).find(p => p.id === targetId);
+    
+    if (!targetProject) {
+      console.error('❌ handleSidebarProjectDrop: Target project not found!', targetId);
+      return;
+    }
+    
+    // Mark as in progress
+    dropsInProgress.current.add(draggedId);
+    console.log('🔒 Locked card for sidebar drop:', draggedId);
     
     if (draggedProject && targetProject) {
       const allProjects = [...(projects || [])];
@@ -1609,6 +1906,12 @@ export default function FigJamBoard() {
       console.log('📍 Total projects after reorder:', finalProjects.length);
       
       safeFirebaseSet('projects', finalProjects, setProjects);
+      
+      // Unlock after operation
+      setTimeout(() => {
+        dropsInProgress.current.delete(draggedId);
+        console.log('🔓 Unlocked card after sidebar drop:', draggedId);
+      }, 100);
     }
   };
 
@@ -1664,43 +1967,37 @@ export default function FigJamBoard() {
 
           {/* Projects List */}
           <div className="flex-1 overflow-y-auto p-3">
-            <div className={`text-xs font-semibold mb-2 px-2 ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
-              {getSortedProjectsForSidebar().length} {selectedProjectTags.length > 0 ? 'FILTERED' : ''} PROJECTS
-              {selectedProjectTags.length > 0 && (
-                <span className="text-[#0572CE] ml-1">({(projects || []).length} total)</span>
-              )}
+            <div className={`text-xs font-semibold mb-3 px-2 ${isDarkTheme ? 'text-gray-400' : 'text-gray-500'}`}>
+              {(projects || []).length} TOTAL PROJECTS
             </div>
-            <div className="space-y-1">
-              {getSortedProjectsForSidebar().map((project, index, array) => {
-                const previousProject = index > 0 ? array[index - 1] : null;
-                const showDivider = previousProject && previousProject.priority !== project.priority;
-                
-                return (
-                  <div key={project.id}>
-                    {showDivider && (
-                      <div className="flex items-center gap-2 py-2 px-2">
-                        <div className={`flex-1 h-px ${isDarkTheme ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                        <span className={`text-xs font-bold ${isDarkTheme ? 'text-gray-300' : 'text-gray-600'}`}>{project.priority}</span>
-                        <div className={`flex-1 h-px ${isDarkTheme ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                      </div>
-                    )}
-                    {index === 0 && (
-                      <div className="flex items-center gap-2 py-2 px-2">
-                        <div className={`flex-1 h-px ${isDarkTheme ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                        <span className={`text-xs font-bold ${isDarkTheme ? 'text-gray-300' : 'text-gray-600'}`}>{project.priority}</span>
-                        <div className={`flex-1 h-px ${isDarkTheme ? 'bg-gray-600' : 'bg-gray-300'}`}></div>
-                      </div>
-                    )}
-                    <SidebarProjectItem
-                      project={project}
-                      onDrop={handleSidebarProjectDrop}
-                      onClick={() => scrollToProject(project.id)}
-                      isHighlighted={highlightedProjectId === project.id}
-                      isDarkTheme={isDarkTheme}
-                    />
-                  </div>
-                );
-              })}
+            <div className="space-y-0">
+              {/* Standard Priority Rows */}
+              {priorityRows.map((priority) => (
+                <SidebarPrioritySection
+                  key={priority}
+                  priority={priority}
+                  isCustom={false}
+                  projects={groupedProjects[priority] || []}
+                  onDrop={handleSidebarProjectDrop}
+                  onClick={scrollToProject}
+                  highlightedProjectId={highlightedProjectId}
+                  isDarkTheme={isDarkTheme}
+                />
+              ))}
+              
+              {/* Custom Priority Rows */}
+              {(customRows || []).map((row) => (
+                <SidebarPrioritySection
+                  key={row.id}
+                  priority={row.name}
+                  isCustom={true}
+                  projects={groupedProjects[row.name] || []}
+                  onDrop={handleSidebarProjectDrop}
+                  onClick={scrollToProject}
+                  highlightedProjectId={highlightedProjectId}
+                  isDarkTheme={isDarkTheme}
+                />
+              ))}
             </div>
           </div>
         </div>
@@ -1717,9 +2014,25 @@ export default function FigJamBoard() {
       )}
 
       {/* Main Content */}
-      <div className={`flex-1 min-h-screen transition-colors duration-300 ${
-        isDarkTheme ? 'bg-gray-900' : 'bg-[#f5f5f5]'
-      }`}>
+      <div 
+        className={`flex-1 min-h-screen transition-all duration-300 relative`}
+      >
+        {/* Background Image with Dark Mode Filter */}
+        <div 
+          className={`fixed inset-0 transition-all duration-300 ${
+            isDarkTheme ? 'brightness-[0.3] contrast-[1.1] saturate-[0.7] hue-rotate-[10deg]' : 'brightness-100'
+          }`}
+          style={{
+            backgroundImage: `url(${redwoodBg})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            zIndex: 0
+          }}
+        />
+        
+        {/* Content Overlay */}
+        <div className="relative z-10">
         {/* Toolbar */}
         <div className={`fixed top-0 right-0 shadow-sm z-10 px-6 py-4 transition-colors duration-300 ${
           isDarkTheme ? 'bg-gray-800 border-b border-gray-700' : 'bg-white border-b border-gray-200'
@@ -1886,7 +2199,7 @@ export default function FigJamBoard() {
               projects={groupedProjects[priority]}
               onDrop={handleCardDrop}
             >
-              <div className="border-2 rounded-lg p-5" style={priorityRowStyles[priority]}>
+              <div className="border-2 rounded-lg p-5 shadow-lg" style={priorityRowStyles[priority]}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <h2 className="font-bold text-xl" style={priorityLabels[priority].style}>
@@ -1955,7 +2268,7 @@ export default function FigJamBoard() {
               projects={groupedProjects[row.name]}
               onDrop={handleCardDrop}
             >
-              <div className="border-2 rounded-lg p-5" style={getCustomRowBgColor(row.name)}>
+              <div className="border-2 rounded-lg p-5 shadow-lg" style={getCustomRowBgColor(row.name)}>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     {editingRowId === row.id ? (
@@ -2791,6 +3104,7 @@ export default function FigJamBoard() {
           </div>
         </div>
       )}
+      </div>
       </div>
     </div>
   );
