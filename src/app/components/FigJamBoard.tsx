@@ -508,9 +508,28 @@ function SidebarProjectItem({
       style={{ opacity: isDragging ? 0.5 : 1 }}
     >
       <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
-      <span className={`text-sm truncate flex-1 ${isDarkTheme ? 'text-gray-200' : 'text-gray-900'}`}>
-        {project.projectName}
-      </span>
+      <div className="flex-1 min-w-0">
+        <span className={`text-sm truncate block ${isDarkTheme ? 'text-gray-200' : 'text-gray-900'}`}>
+          {project.projectName}
+        </span>
+        {/* Project Tags */}
+        {(project.projectTags || []).length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1">
+            {(project.projectTags || []).map((tagName, index) => (
+              <span
+                key={index}
+                className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                  isDarkTheme 
+                    ? 'bg-gray-700 text-gray-300 border-gray-600' 
+                    : 'bg-gray-100 text-gray-600 border-gray-300'
+                }`}
+              >
+                {tagName}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
