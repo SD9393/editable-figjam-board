@@ -999,12 +999,12 @@ export default function FigJamBoard() {
         const savedCustomRows = localStorage.getItem('customRows');
         const savedTeammates = localStorage.getItem('teammates');
         
-        setProjects(savedProjects ? JSON.parse(savedProjects) : initialProjects);
+        setProjects(savedProjects ? JSON.parse(savedProjects) : []);
         setCustomRows(savedCustomRows ? JSON.parse(savedCustomRows) : initialCustomRows);
         setTeammates(savedTeammates ? JSON.parse(savedTeammates) : initialTeammates);
       } catch (error) {
         console.error('Error loading from localStorage:', error);
-        setProjects(initialProjects);
+        setProjects([]);
         setCustomRows(initialCustomRows);
         setTeammates(initialTeammates);
       }
@@ -1054,9 +1054,8 @@ export default function FigJamBoard() {
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
       const data = snapshot.val();
       if (data === null || data === undefined) {
-        // Initialize with default data if empty
-        set(projectsRef, cleanFirebaseData(initialProjects));
-        setProjects(initialProjects);
+        // Allow empty state - don't restore default data
+        setProjects([]);
       } else {
         const projectsArray = convertToArray(data);
         setProjects(projectsArray);
@@ -1065,7 +1064,8 @@ export default function FigJamBoard() {
       checkAllLoaded();
     }, (error) => {
       console.error('Error loading projects:', error);
-      setProjects(initialProjects);
+      // On error, keep current state or set to empty rather than restoring defaults
+      setProjects([]);
       projectsLoaded = true;
       checkAllLoaded();
     });
