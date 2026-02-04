@@ -1035,29 +1035,39 @@ export default function FigJamBoard() {
     // Helper to convert Firebase object back to array
     const convertToArray = (data: any): any[] => {
       if (Array.isArray(data)) {
+        console.log('✅ convertToArray: Data is already an array, length:', data.length);
         return data;
       } else if (data && typeof data === 'object') {
         // Firebase sometimes converts arrays to objects
         // Try to convert back to array
         const keys = Object.keys(data);
+        console.log('🔄 convertToArray: Converting object to array, keys:', keys.length);
         if (keys.every(key => !isNaN(Number(key)))) {
           // If all keys are numbers, convert to array
-          return Object.values(data);
+          const arr = Object.values(data);
+          console.log('✅ convertToArray: Converted numeric-keyed object to array, length:', arr.length);
+          return arr;
         }
         // Otherwise, return as array with single object
+        console.log('⚠️ convertToArray: Non-numeric keys, wrapping in array');
         return [data];
       }
+      console.log('✅ convertToArray: Data is null/undefined, returning empty array');
       return [];
     };
 
     // Listen for projects changes
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
       const data = snapshot.val();
+      console.log('🔥 Firebase projects snapshot received:', data);
+      console.log('🔥 Data is null/undefined?', data === null || data === undefined);
       if (data === null || data === undefined) {
         // Allow empty state - don't restore default data
+        console.log('✅ Setting projects to empty array (no default restoration)');
         setProjects([]);
       } else {
         const projectsArray = convertToArray(data);
+        console.log('✅ Setting projects from Firebase:', projectsArray.length, 'projects');
         setProjects(projectsArray);
       }
       projectsLoaded = true;
@@ -1065,6 +1075,7 @@ export default function FigJamBoard() {
     }, (error) => {
       console.error('Error loading projects:', error);
       // On error, keep current state or set to empty rather than restoring defaults
+      console.log('❌ Firebase error - setting projects to empty array');
       setProjects([]);
       projectsLoaded = true;
       checkAllLoaded();
@@ -1173,8 +1184,18 @@ export default function FigJamBoard() {
 
   // Helper function to safely update Firebase or local state
   const safeFirebaseSet = (path: string, data: any, localSetter?: (data: any) => void) => {
+    console.log(`💾 safeFirebaseSet called for path: "${path}"`, {
+      dataType: Array.isArray(data) ? 'array' : typeof data,
+      arrayLength: Array.isArray(data) ? data.length : 'N/A',
+      hasFirebase: !!db
+    });
+    
     if (db) {
-      set(ref(db, path), cleanFirebaseData(data));
+      const cleanedData = cleanFirebaseData(data);
+      console.log(`💾 Writing to Firebase path: "${path}"`, {
+        cleanedDataLength: Array.isArray(cleanedData) ? cleanedData.length : 'N/A'
+      });
+      set(ref(db, path), cleanedData);
     } else {
       // When Firebase is not available, use localStorage
       if (localSetter) {
@@ -1203,6 +1224,8 @@ export default function FigJamBoard() {
   };
 
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
+    console.log('🎯 handleCardDrop called:', { cardId, newPriority, isCustom });
+    console.log('🎯 Current projects count:', (projects || []).length);
     const updatedProjects = (projects || []).map((p) => {
       if (p.id === cardId) {
         return {
@@ -1215,11 +1238,15 @@ export default function FigJamBoard() {
       }
       return p;
     });
+    console.log('🎯 Updated projects count after drop:', updatedProjects.length);
     safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleDeleteProject = (id: string) => {
     const updatedProjects = (projects || []).filter((p) => p.id !== id);
+    console.log('🗑️ Deleting project', id);
+    console.log('🗑️ Remaining projects:', updatedProjects.length);
+    console.log('🗑️ Updated projects array:', updatedProjects);
     safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
@@ -1479,11 +1506,13 @@ export default function FigJamBoard() {
 
   // Handle project reorder from sidebar
   const handleSidebarProjectDrop = (draggedId: string, targetId: string) => {
+    console.log('📍 handleSidebarProjectDrop called:', { draggedId, targetId });
     const draggedProject = (projects || []).find(p => p.id === draggedId);
     const targetProject = (projects || []).find(p => p.id === targetId);
     
     if (draggedProject && targetProject) {
       const allProjects = [...(projects || [])];
+      console.log('📍 Total projects before reorder:', allProjects.length);
       
       // Get projects in target's priority, sorted
       const samePriorityProjects = allProjects
@@ -1520,6 +1549,7 @@ export default function FigJamBoard() {
       );
       
       const finalProjects = [...otherProjects, ...reorderedPriorityGroup];
+      console.log('📍 Total projects after reorder:', finalProjects.length);
       
       safeFirebaseSet('projects', finalProjects, setProjects);
     }
