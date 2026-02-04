@@ -762,7 +762,7 @@ function EditableCard({
           {ownerTags.map(ownerId => {
             const teammate = teammates.find(t => t.id === ownerId);
             return teammate ? (
-              <div key={ownerId} className={`px-2 py-1 rounded-full text-xs font-bold ${teammate.color} text-white flex items-center gap-1`}>
+              <div key={ownerId} className={`px-3 py-1 rounded-full text-xs font-bold ${teammate.color} text-white flex items-center gap-1`}>
                 {teammate.name}
               </div>
             ) : null;
@@ -847,8 +847,8 @@ function EditableCard({
           {tags.map(tagId => {
             const teammate = teammates.find(t => t.id === tagId);
             return teammate ? (
-              <div key={tagId} className={`px-2 py-1 rounded-full text-xs font-bold ${teammate.color} text-white`}>
-                {teammate.name}
+              <div key={tagId} className={`w-7 h-7 rounded-full text-xs font-bold ${teammate.color} text-white flex items-center justify-center`} title={teammate.name}>
+                {teammate.name.charAt(0).toUpperCase()}
               </div>
             ) : null;
           })}
