@@ -761,11 +761,18 @@ function EditableCard({
         <div className="flex flex-wrap items-center gap-2 mt-1">
           {ownerTags.map(ownerId => {
             const teammate = teammates.find(t => t.id === ownerId);
-            return teammate ? (
-              <div key={ownerId} className={`px-3 py-1 rounded-full text-xs font-bold ${teammate.color} text-white flex items-center gap-1`}>
+            if (!teammate) return null;
+            // Extract hex color from Tailwind class (e.g., "bg-[#0572CE]" -> "#0572CE")
+            const hexColor = teammate.color.match(/#[0-9A-Fa-f]{6}/)?.[0] || '#0572CE';
+            return (
+              <div 
+                key={ownerId} 
+                className="px-3 py-1 rounded-full text-xs font-bold text-white flex items-center gap-1"
+                style={{ backgroundColor: hexColor }}
+              >
                 {teammate.name}
               </div>
-            ) : null;
+            );
           })}
           <button
             onClick={() => onShowOwnerModal(project.id)}
@@ -846,11 +853,19 @@ function EditableCard({
         <div className="flex flex-wrap items-center gap-2 mt-1">
           {tags.map(tagId => {
             const teammate = teammates.find(t => t.id === tagId);
-            return teammate ? (
-              <div key={tagId} className={`w-7 h-7 rounded-full text-xs font-bold ${teammate.color} text-white flex items-center justify-center`} title={teammate.name}>
+            if (!teammate) return null;
+            // Extract hex color from Tailwind class (e.g., "bg-[#0572CE]" -> "#0572CE")
+            const hexColor = teammate.color.match(/#[0-9A-Fa-f]{6}/)?.[0] || '#0572CE';
+            return (
+              <div 
+                key={tagId} 
+                className="w-7 h-7 rounded-full text-xs font-bold text-white flex items-center justify-center" 
+                style={{ backgroundColor: hexColor }}
+                title={teammate.name}
+              >
                 {teammate.name.charAt(0).toUpperCase()}
               </div>
-            ) : null;
+            );
           })}
           <button
             onClick={() => onShowTagModal(project.id)}
