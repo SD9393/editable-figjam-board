@@ -978,117 +978,145 @@ export default function FigJamBoard() {
     const savedUser = localStorage.getItem('figJamUserName');
     if (savedUser) {
       setCurrentUser(savedUser);
-      setIsFirebaseReady(true);
     } else {
       setShowUserPrompt(true);
     }
+    // Always set Firebase ready so data loads even before user enters name
+    setIsFirebaseReady(true);
   }, []);
 
   // Set up Firebase real-time listeners
   useEffect(() => {
-  if (!isFirebaseReady) return;
-
-  // If Firebase missing → local fallback
-  if (!db) {
-    setProjects(initialProjects);
-    setCustomRows(initialCustomRows);
-    setTeammates(initialTeammates);
-    setIsDataLoaded(true);
-    return;
-  }
-
-  const projectsRef = ref(db, "projects");
-  const customRowsRef = ref(db, "customRows");
-  const teammatesRef = ref(db, "teammates");
-
-  let projectsReady = false;
-  let rowsReady = false;
-  let teammatesReady = false;
-
-  const checkReady = () => {
-    if (projectsReady && rowsReady && teammatesReady) {
+    if (!isFirebaseReady) return;
+    
+    // If Firebase is not configured, initialize with local state + localStorage
+    if (!db) {
+      console.log('Firebase not configured - using local state with localStorage');
+      
+      // Try to load from localStorage first
+      try {
+        const savedProjects = localStorage.getItem('projects');
+        const savedCustomRows = localStorage.getItem('customRows');
+        const savedTeammates = localStorage.getItem('teammates');
+        
+        setProjects(savedProjects ? JSON.parse(savedProjects) : initialProjects);
+        setCustomRows(savedCustomRows ? JSON.parse(savedCustomRows) : initialCustomRows);
+        setTeammates(savedTeammates ? JSON.parse(savedTeammates) : initialTeammates);
+      } catch (error) {
+        console.error('Error loading from localStorage:', error);
+        setProjects(initialProjects);
+        setCustomRows(initialCustomRows);
+        setTeammates(initialTeammates);
+      }
       setIsDataLoaded(true);
+      return;
     }
-  };
 
-  // -------- PROJECTS ----------
-  const unsubProjects = onValue(
-    projectsRef,
-    (snap) => {
-      const data = snap.val();
+    const projectsRef = ref(db, 'projects');
+    const customRowsRef = ref(db, 'customRows');
+    const teammatesRef = ref(db, 'teammates');
 
-      if (!data) {
+    let projectsLoaded = false;
+    let customRowsLoaded = false;
+    let teammatesLoaded = false;
+
+    const checkAllLoaded = () => {
+      if (projectsLoaded && customRowsLoaded && teammatesLoaded) {
+        setIsDataLoaded(true);
+      }
+    };
+
+    // Set a timeout to ensure loading doesn't hang forever
+    const loadingTimeout = setTimeout(() => {
+      console.warn('Firebase loading timeout - using local data');
+      setIsDataLoaded(true);
+    }, 5000); // 5 second timeout
+
+    // Helper to convert Firebase object back to array
+    const convertToArray = (data: any): any[] => {
+      if (Array.isArray(data)) {
+        return data;
+      } else if (data && typeof data === 'object') {
+        // Firebase sometimes converts arrays to objects
+        // Try to convert back to array
+        const keys = Object.keys(data);
+        if (keys.every(key => !isNaN(Number(key)))) {
+          // If all keys are numbers, convert to array
+          return Object.values(data);
+        }
+        // Otherwise, return as array with single object
+        return [data];
+      }
+      return [];
+    };
+
+    // Listen for projects changes
+    const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data === null || data === undefined) {
+        // Initialize with default data if empty
         set(projectsRef, cleanFirebaseData(initialProjects));
         setProjects(initialProjects);
       } else {
-        const arr = Array.isArray(data) ? data : Object.values(data);
-        setProjects(arr);
+        const projectsArray = convertToArray(data);
+        setProjects(projectsArray);
       }
-
-      projectsReady = true;
-      checkReady();
-    },
-    () => {
+      projectsLoaded = true;
+      checkAllLoaded();
+    }, (error) => {
+      console.error('Error loading projects:', error);
       setProjects(initialProjects);
-      projectsReady = true;
-      checkReady();
-    }
-  );
+      projectsLoaded = true;
+      checkAllLoaded();
+    });
 
-  // -------- CUSTOM ROWS ----------
-  const unsubRows = onValue(
-    customRowsRef,
-    (snap) => {
-      const data = snap.val();
-
-      if (!data) {
+    // Listen for custom rows changes
+    const unsubscribeCustomRows = onValue(customRowsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data === null || data === undefined) {
+        // Initialize with default data if empty
         set(customRowsRef, cleanFirebaseData(initialCustomRows));
         setCustomRows(initialCustomRows);
       } else {
-        const arr = Array.isArray(data) ? data : Object.values(data);
-        setCustomRows(arr);
+        const rowsArray = convertToArray(data);
+        setCustomRows(rowsArray);
       }
-
-      rowsReady = true;
-      checkReady();
-    },
-    () => {
+      customRowsLoaded = true;
+      checkAllLoaded();
+    }, (error) => {
+      console.error('Error loading custom rows:', error);
       setCustomRows(initialCustomRows);
-      rowsReady = true;
-      checkReady();
-    }
-  );
+      customRowsLoaded = true;
+      checkAllLoaded();
+    });
 
-  // -------- TEAMMATES ----------
-  const unsubTeammates = onValue(
-    teammatesRef,
-    (snap) => {
-      const data = snap.val();
-
-      if (!data) {
+    // Listen for teammates changes
+    const unsubscribeTeammates = onValue(teammatesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data === null || data === undefined) {
+        // Initialize with default data if empty
         set(teammatesRef, cleanFirebaseData(initialTeammates));
         setTeammates(initialTeammates);
       } else {
-        const arr = Array.isArray(data) ? data : Object.values(data);
-        setTeammates(arr);
+        const teammatesArray = convertToArray(data);
+        setTeammates(teammatesArray);
       }
-
-      teammatesReady = true;
-      checkReady();
-    },
-    () => {
+      teammatesLoaded = true;
+      checkAllLoaded();
+    }, (error) => {
+      console.error('Error loading teammates:', error);
       setTeammates(initialTeammates);
-      teammatesReady = true;
-      checkReady();
-    }
-  );
+      teammatesLoaded = true;
+      checkAllLoaded();
+    });
 
-  return () => {
-    unsubProjects();
-    unsubRows();
-    unsubTeammates();
-  };
-}, [isFirebaseReady]);
+    return () => {
+      clearTimeout(loadingTimeout);
+      unsubscribeProjects();
+      unsubscribeCustomRows();
+      unsubscribeTeammates();
+    };
+  }, [isFirebaseReady]);
 
   // User presence tracking
   useEffect(() => {
@@ -1144,12 +1172,7 @@ export default function FigJamBoard() {
   }, [projects]);
 
   // Helper function to safely update Firebase or local state
-  const safeFirebaseSet = (path: string, data: any) => {
-  if (db) {
-    set(ref(db, path), cleanFirebaseData(data));
-  
-};
-
+  const safeFirebaseSet = (path: string, data: any, localSetter?: (data: any) => void) => {
     if (db) {
       set(ref(db, path), cleanFirebaseData(data));
     } else {
@@ -1176,7 +1199,7 @@ export default function FigJamBoard() {
           } 
         : p
     );
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
@@ -1192,12 +1215,12 @@ export default function FigJamBoard() {
       }
       return p;
     });
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleDeleteProject = (id: string) => {
     const updatedProjects = (projects || []).filter((p) => p.id !== id);
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleAddNewCard = (priority: string, isCustom: boolean = false) => {
@@ -1217,7 +1240,7 @@ export default function FigJamBoard() {
       lastModifiedAt: Date.now()
     };
     const updatedProjects = [...(projects || []), newCard];
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleAddCustomRow = () => {
@@ -1235,7 +1258,7 @@ export default function FigJamBoard() {
     if (rowToDelete) {
       const updatedProjects = (projects || []).filter(p => p.category !== rowToDelete.name);
       const updatedRows = (customRows || []).filter(r => r.id !== rowId);
-      safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
+      safeFirebaseSet('projects', updatedProjects, setProjects);
       safeFirebaseSet('customRows', updatedRows, setCustomRows);
     }
   };
@@ -1256,7 +1279,7 @@ export default function FigJamBoard() {
           ? { ...p, priority: editingRowName, category: editingRowName, lastModifiedBy: currentUser, lastModifiedAt: Date.now() } 
           : p
       );
-      safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
+      safeFirebaseSet('projects', updatedProjects, setProjects);
     }
     setEditingRowId(null);
     setEditingRowName('');
@@ -1287,7 +1310,7 @@ export default function FigJamBoard() {
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     }));
-    safeFirebaseSet('projects', updatedProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
   const handleStartEditingTeammate = (teammateId: string, currentName: string) => {
@@ -1498,7 +1521,7 @@ export default function FigJamBoard() {
       
       const finalProjects = [...otherProjects, ...reorderedPriorityGroup];
       
-      safeFirebaseSet('projects', finalProjects);
+      safeFirebaseSet('projects', finalProjects, setProjects);
     }
   };
 
@@ -2684,5 +2707,4 @@ export default function FigJamBoard() {
       </div>
     </div>
   );
-  
 }
