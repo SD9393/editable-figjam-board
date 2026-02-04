@@ -1147,7 +1147,7 @@ export default function FigJamBoard() {
   const safeFirebaseSet = (path: string, data: any) => {
   if (db) {
     set(ref(db, path), cleanFirebaseData(data));
-  }
+  
 };
 
     if (db) {
@@ -2684,4 +2684,5 @@ export default function FigJamBoard() {
       </div>
     </div>
   );
+  
 }
