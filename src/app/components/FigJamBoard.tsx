@@ -942,7 +942,7 @@ function getPriorityInitials(priority: string): string {
 }
 
 export default function FigJamBoard() {
-  const [projects, setProjects] = useState<ProjectCard[]>([]);
+  const [projects, setProjectsHydrated] = useState<ProjectCard[]>([]);
   const [customRows, setCustomRows] = useState<CustomRow[]>([]);
   const [teammates, setTeammates] = useState<Teammate[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -998,12 +998,12 @@ export default function FigJamBoard() {
         const savedCustomRows = localStorage.getItem('customRows');
         const savedTeammates = localStorage.getItem('teammates');
         
-        setProjects(savedProjects ? JSON.parse(savedProjects) : initialProjects);
+        setProjectsHydrated(savedProjects ? JSON.parse(savedProjects) : initialProjects);
         setCustomRows(savedCustomRows ? JSON.parse(savedCustomRows) : initialCustomRows);
         setTeammates(savedTeammates ? JSON.parse(savedTeammates) : initialTeammates);
       } catch (error) {
         console.error('Error loading from localStorage:', error);
-        setProjects(initialProjects);
+        setProjectsHydrated(initialProjects);
         setCustomRows(initialCustomRows);
         setTeammates(initialTeammates);
       }
@@ -1055,16 +1055,16 @@ export default function FigJamBoard() {
       if (data === null || data === undefined) {
         // Initialize with default data if empty
         set(projectsRef, cleanFirebaseData(initialProjects));
-        setProjects(initialProjects);
+        setProjectsHydrated(initialProjects);
       } else {
         const projectsArray = convertToArray(data);
-        setProjects(projectsArray);
+        setProjectsHydrated(projectsArray);
       }
       projectsLoaded = true;
       checkAllLoaded();
     }, (error) => {
       console.error('Error loading projects:', error);
-      setProjects(initialProjects);
+      setProjectsHydrated(initialProjects);
       projectsLoaded = true;
       checkAllLoaded();
     });
@@ -1198,7 +1198,7 @@ export default function FigJamBoard() {
           } 
         : p
     );
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
   };
 
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
@@ -1214,12 +1214,12 @@ export default function FigJamBoard() {
       }
       return p;
     });
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
   };
 
   const handleDeleteProject = (id: string) => {
     const updatedProjects = (projects || []).filter((p) => p.id !== id);
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
   };
 
   const handleAddNewCard = (priority: string, isCustom: boolean = false) => {
@@ -1239,7 +1239,7 @@ export default function FigJamBoard() {
       lastModifiedAt: Date.now()
     };
     const updatedProjects = [...(projects || []), newCard];
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
   };
 
   const handleAddCustomRow = () => {
@@ -1257,7 +1257,7 @@ export default function FigJamBoard() {
     if (rowToDelete) {
       const updatedProjects = (projects || []).filter(p => p.category !== rowToDelete.name);
       const updatedRows = (customRows || []).filter(r => r.id !== rowId);
-      safeFirebaseSet('projects', updatedProjects, setProjects);
+      safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
       safeFirebaseSet('customRows', updatedRows, setCustomRows);
     }
   };
@@ -1278,7 +1278,7 @@ export default function FigJamBoard() {
           ? { ...p, priority: editingRowName, category: editingRowName, lastModifiedBy: currentUser, lastModifiedAt: Date.now() } 
           : p
       );
-      safeFirebaseSet('projects', updatedProjects, setProjects);
+      safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
     }
     setEditingRowId(null);
     setEditingRowName('');
@@ -1309,7 +1309,7 @@ export default function FigJamBoard() {
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     }));
-    safeFirebaseSet('projects', updatedProjects, setProjects);
+    safeFirebaseSet('projects', updatedProjects, setProjectsHydrated);
   };
 
   const handleStartEditingTeammate = (teammateId: string, currentName: string) => {
@@ -1520,7 +1520,7 @@ export default function FigJamBoard() {
       
       const finalProjects = [...otherProjects, ...reorderedPriorityGroup];
       
-      safeFirebaseSet('projects', finalProjects, setProjects);
+      safeFirebaseSet('projects', finalProjects, setProjectsHydrated);
     }
   };
 
