@@ -1,81 +1,136 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Oracle Redwood Typography */
   --font-size: 16px;
-  --background: #ffffff;
-  --foreground: oklch(0.145 0 0);
-  --card: #ffffff;
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: #030213;
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.95 0.0058 264.53);
-  --secondary-foreground: #030213;
-  --muted: #ececf0;
-  --muted-foreground: #717182;
-  --accent: #e9ebef;
-  --accent-foreground: #030213;
-  --destructive: #d4183d;
-  --destructive-foreground: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
+  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  
+  /* Oracle Redwood Color Palette */
+  --oracle-red: #C74634;
+  --oracle-red-dark: #A63C2C;
+  --oracle-red-light: #E57361;
+  
+  --oracle-blue: #0572CE;
+  --oracle-blue-dark: #025A9F;
+  --oracle-blue-light: #3B8FDB;
+  
+  --oracle-teal: #1B9AAA;
+  --oracle-teal-dark: #147A87;
+  --oracle-teal-light: #4DB5C2;
+  
+  --oracle-green: #2E7D32;
+  --oracle-green-dark: #1B5E20;
+  --oracle-green-light: #4CAF50;
+  
+  --oracle-purple: #6A1B9A;
+  --oracle-purple-dark: #4A148C;
+  --oracle-purple-light: #8E24AA;
+  
+  --oracle-orange: #F57C00;
+  --oracle-orange-dark: #E65100;
+  --oracle-orange-light: #FF9800;
+  
+  --oracle-yellow: #F9A825;
+  --oracle-yellow-dark: #F57F17;
+  --oracle-yellow-light: #FBC02D;
+  
+  /* Oracle Redwood Neutrals */
+  --oracle-gray-50: #FAFAFA;
+  --oracle-gray-100: #F5F5F5;
+  --oracle-gray-200: #EEEEEE;
+  --oracle-gray-300: #E0E0E0;
+  --oracle-gray-400: #BDBDBD;
+  --oracle-gray-500: #9E9E9E;
+  --oracle-gray-600: #757575;
+  --oracle-gray-700: #616161;
+  --oracle-gray-800: #424242;
+  --oracle-gray-900: #212121;
+  
+  /* Application Theme Colors */
+  --background: #FFFFFF;
+  --foreground: var(--oracle-gray-900);
+  --card: #FFFFFF;
+  --card-foreground: var(--oracle-gray-900);
+  --popover: #FFFFFF;
+  --popover-foreground: var(--oracle-gray-900);
+  --primary: var(--oracle-blue);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--oracle-gray-100);
+  --secondary-foreground: var(--oracle-gray-900);
+  --muted: var(--oracle-gray-100);
+  --muted-foreground: var(--oracle-gray-600);
+  --accent: var(--oracle-gray-200);
+  --accent-foreground: var(--oracle-gray-900);
+  --destructive: var(--oracle-red);
+  --destructive-foreground: #FFFFFF;
+  --border: var(--oracle-gray-300);
   --input: transparent;
-  --input-background: #f3f3f5;
-  --switch-background: #cbced4;
+  --input-background: var(--oracle-gray-50);
+  --switch-background: var(--oracle-gray-400);
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #030213;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --ring: var(--oracle-blue-light);
+  
+  /* Chart Colors - Oracle Redwood Palette */
+  --chart-1: var(--oracle-blue);
+  --chart-2: var(--oracle-teal);
+  --chart-3: var(--oracle-green);
+  --chart-4: var(--oracle-orange);
+  --chart-5: var(--oracle-purple);
+  
+  /* Border Radius - Oracle Redwood uses subtle rounded corners */
+  --radius: 0.375rem;
+  
+  /* Sidebar Colors */
+  --sidebar: var(--oracle-gray-50);
+  --sidebar-foreground: var(--oracle-gray-900);
+  --sidebar-primary: var(--oracle-blue);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: var(--oracle-gray-100);
+  --sidebar-accent-foreground: var(--oracle-gray-800);
+  --sidebar-border: var(--oracle-gray-200);
+  --sidebar-ring: var(--oracle-blue-light);
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  --background: var(--oracle-gray-900);
+  --foreground: var(--oracle-gray-50);
+  --card: var(--oracle-gray-800);
+  --card-foreground: var(--oracle-gray-50);
+  --popover: var(--oracle-gray-800);
+  --popover-foreground: var(--oracle-gray-50);
+  --primary: var(--oracle-blue-light);
+  --primary-foreground: var(--oracle-gray-900);
+  --secondary: var(--oracle-gray-700);
+  --secondary-foreground: var(--oracle-gray-50);
+  --muted: var(--oracle-gray-700);
+  --muted-foreground: var(--oracle-gray-400);
+  --accent: var(--oracle-gray-700);
+  --accent-foreground: var(--oracle-gray-50);
+  --destructive: var(--oracle-red-light);
+  --destructive-foreground: var(--oracle-gray-50);
+  --border: var(--oracle-gray-700);
+  --input: var(--oracle-gray-700);
+  --ring: var(--oracle-blue-light);
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --chart-1: var(--oracle-blue-light);
+  --chart-2: var(--oracle-teal-light);
+  --chart-3: var(--oracle-green-light);
+  --chart-4: var(--oracle-orange-light);
+  --chart-5: var(--oracle-purple-light);
+  --sidebar: var(--oracle-gray-800);
+  --sidebar-foreground: var(--oracle-gray-50);
+  --sidebar-primary: var(--oracle-blue-light);
+  --sidebar-primary-foreground: var(--oracle-gray-900);
+  --sidebar-accent: var(--oracle-gray-700);
+  --sidebar-accent-foreground: var(--oracle-gray-50);
+  --sidebar-border: var(--oracle-gray-700);
+  --sidebar-ring: var(--oracle-blue-light);
 }
 
 @theme inline {
@@ -105,9 +160,9 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -126,11 +181,13 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-family-base);
   }
 
   /**
   * Default typography styles for HTML elements (h1-h4, p, label, button, input).
   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  * Typography follows Oracle Redwood guidelines
   */
 
   html {
@@ -139,26 +196,26 @@
 
   h1 {
     font-size: var(--text-2xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
   }
 
   h2 {
     font-size: var(--text-xl);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
   }
 
   h3 {
     font-size: var(--text-lg);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
   }
 
   h4 {
     font-size: var(--text-base);
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
   }
 
   label {
@@ -173,7 +230,7 @@
     line-height: 1.5;
   }
 
-  input {
+  input, textarea {
     font-size: var(--text-base);
     font-weight: var(--font-weight-normal);
     line-height: 1.5;

@@ -1,141 +1,93 @@
-# Firebase Setup Guide for Real-Time Collaboration
+# Firebase Setup Guide
 
-Your Project Board now supports real-time collaboration! Follow these steps to set up Firebase and enable live updates for your team.
+## Overview
+This project uses Firebase Realtime Database for real-time collaboration. Follow these steps to set up Firebase for your team.
 
-## Step 1: Create a Firebase Project
+## Steps to Configure Firebase
 
+### 1. Create a Firebase Project
 1. Go to [Firebase Console](https://console.firebase.google.com/)
-2. Click "Add project" or "Create a project"
-3. Enter a project name (e.g., "Oracle Project Board")
-4. Optional: Enable Google Analytics (you can skip this)
-5. Click "Create project"
+2. Click "Add project" or select an existing project
+3. Follow the setup wizard
 
-## Step 2: Create a Web App
+### 2. Enable Realtime Database
+1. In your Firebase project, go to **Build > Realtime Database**
+2. Click "Create Database"
+3. Choose a location for your database
+4. Start in **test mode** for development (you can secure it later)
 
-1. In your Firebase project dashboard, click the **Web icon** (`</>`)
-2. Register your app:
-   - App nickname: "Oracle Project Board Web"
-   - Check "Also set up Firebase Hosting" (optional)
-   - Click "Register app"
+### 3. Get Your Firebase Configuration
+1. In Firebase Console, go to **Project Settings** (gear icon)
+2. Scroll down to "Your apps" section
+3. Click the **</>** (web) icon to add a web app
+4. Register your app with a nickname
+5. Copy the configuration values
 
-## Step 3: Get Your Firebase Configuration
+### 4. Update Your .env File
+1. Open the `.env` file in your project root
+2. Replace the placeholder values with your actual Firebase configuration:
 
-After registering your app, Firebase will show you a configuration object that looks like this:
-
-```javascript
-const firebaseConfig = {
-  apiKey: "AIzaSyC...",
-  authDomain: "your-project.firebaseapp.com",
-  databaseURL: "https://your-project-default-rtdb.firebaseio.com",
-  projectId: "your-project",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abc123"
-};
+```env
+VITE_FIREBASE_API_KEY=your-actual-api-key-here
+VITE_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+VITE_FIREBASE_DATABASE_URL=https://your-project-id-default-rtdb.firebaseio.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
+VITE_FIREBASE_APP_ID=your-app-id
 ```
 
-**Copy this entire configuration!**
+### 5. Restart Your Development Server
+After updating the `.env` file, restart your development server for the changes to take effect.
 
-## Step 4: Enable Realtime Database
+## Security Rules (Important!)
 
-1. In the Firebase Console, click **"Realtime Database"** in the left sidebar (under "Build")
-2. Click **"Create Database"**
-3. Choose a location (e.g., United States)
-4. **Security Rules**: Select **"Start in test mode"** for now
-   - This allows read/write access for 30 days
-   - We'll secure it in Step 6
-5. Click "Enable"
+For production, update your Firebase Realtime Database rules:
 
-## Step 5: Update Your Code
-
-Open `/src/config/firebase.ts` and replace the placeholder values with your actual Firebase configuration:
-
-```typescript
-import { initializeApp } from 'firebase/app';
-import { getDatabase } from 'firebase/database';
-
-// Replace these with YOUR actual Firebase project credentials
-const firebaseConfig = {
-  apiKey: "YOUR_ACTUAL_API_KEY",
-  authDomain: "your-project.firebaseapp.com",
-  databaseURL: "https://your-project-default-rtdb.firebaseio.com",
-  projectId: "your-project",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-export const database = getDatabase(app);
-```
-
-## Step 6: Secure Your Database (Important!)
-
-By default, test mode allows anyone with your database URL to read/write data. For a collaborative board where "anyone with the link can edit", use these rules:
-
-1. In Firebase Console, go to **Realtime Database** → **Rules** tab
-2. Replace the rules with:
+1. Go to **Build > Realtime Database > Rules**
+2. Use these recommended rules:
 
 ```json
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "projects": {
+      ".read": true,
+      ".write": true
+    },
+    "customRows": {
+      ".read": true,
+      ".write": true
+    },
+    "teammates": {
+      ".read": true,
+      ".write": true
+    }
   }
 }
 ```
 
-⚠️ **Security Note**: These rules allow anyone with the database URL to access your data. For better security, consider:
-
-- **Option A - Restrict by Domain**: Only allow requests from your specific domain
-- **Option B - Add Simple Password**: Implement a simple shared password in your app
-- **Option C - Use Firebase Authentication**: Add user login (more complex but most secure)
-
-For production use, I recommend Option C. Let me know if you want help implementing authentication!
-
-## Step 7: Share Your Board
-
-Once Firebase is configured:
-
-1. **Deploy your board** to a hosting service:
-   - [Vercel](https://vercel.com/) (Easiest - free tier available)
-   - [Netlify](https://www.netlify.com/) (Also easy - free tier)
-   - Firebase Hosting (included with your Firebase project)
-
-2. **Share the URL** with your team members
-
-3. When someone visits for the first time, they'll be prompted to enter their name
-
-4. All changes will sync in real-time across all users! 🎉
-
-## Features Enabled
-
-✅ **Real-time Updates**: Changes appear instantly for all users  
-✅ **Change Tracking**: See who made the last edit and when  
-✅ **User Identification**: Each user enters their name on first visit  
-✅ **Persistent Data**: All data stored in Firebase (not just browser storage)  
-✅ **Collaborative Editing**: Multiple people can edit simultaneously
+For enhanced security, you can add authentication and more granular rules based on your team's needs.
 
 ## Troubleshooting
 
-### "Permission denied" error
-- Check that your Realtime Database rules allow read/write access
-- Verify the `databaseURL` in your config is correct
+### "Can't determine Firebase Database URL" Error
+- Make sure you've added the `VITE_FIREBASE_DATABASE_URL` to your `.env` file
+- Verify the database URL matches your Firebase project (should end with `.firebaseio.com`)
+- Restart your development server after making changes
 
-### Changes not syncing
-- Open browser console (F12) and check for errors
-- Verify your Firebase config is correct
-- Make sure you're using the same Firebase project for all users
+### Changes Not Syncing
+- Check your browser console for Firebase errors
+- Verify your database rules allow read/write access
+- Make sure all team members are using the same Firebase project
 
-### "Firebase not initialized" error
-- Check that `/src/config/firebase.ts` has valid credentials
-- Verify the imports are correct
+## Features Using Firebase
 
-## Need Help?
+- ✅ Real-time project updates across all team members
+- ✅ Drag-and-drop priority changes sync instantly
+- ✅ Custom row creation and editing
+- ✅ Teammate management with email notifications
+- ✅ Edit tracking (who changed what and when)
 
-If you encounter any issues:
-1. Check the browser console (F12) for error messages
-2. Verify all configuration values are correct (no "YOUR_" placeholders)
-3. Ensure Firebase Realtime Database is enabled in your project
+## Local Development Without Firebase
 
-Let me know if you need any assistance! 🚀
+The app will work in local-only mode if Firebase is not configured. Changes will be stored in browser state but won't sync across team members.

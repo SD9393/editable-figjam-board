@@ -44,9 +44,9 @@ Your Project Board has been upgraded with **real-time collaboration** using Fire
 ## Technical Details
 
 ### What Gets Synced:
-- ✅ Projects (all fields: name, subtasks, status, dates, notes, etc.)
+- ✅ Projects (all fields: name, subtasks, deliverables, status, dates, notes, etc.)
 - ✅ Custom rows (names, colors)
-- ✅ Teammates (names, colors, emails)
+- ✅ Teammates (names, colors)
 - ✅ Change metadata (who made the change, when)
 
 ### What's Local:

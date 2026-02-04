@@ -32,12 +32,15 @@ Welcome to the Oracle Conversation Design Team's Project Board!
 ### Assigning People:
 - **Owner**: Click the 👤 icon in the Owner section
 - **Tag Teammates**: Click the 👥 icon to tag collaborators
-- **Email Notifications**: Tagged people get automatic email updates!
+
+### Managing Deliverables:
+- Click the **"Deliverable (X)"** link on any project card
+- Add, edit, and track specific deliverable items
+- Update status for each deliverable: To Do → In Progress → Done → Blocked
 
 ### Setting Dates:
 - Click the 📅 calendar icon
-- Select a deliverable date
-- System sends reminders 72 hours before the date
+- Select a deliverable date for the project
 
 ## Real-Time Collaboration Magic ✨
 
@@ -69,14 +72,13 @@ Welcome to the Oracle Conversation Design Team's Project Board!
 - **P4** (Blue) - Future consideration
 - **Custom Rows** (Purple/Teal) - Your custom categories like "Backlog" or "Planning"
 
-## Email Notifications 📧
+## Sidebar Navigation 🗂️
 
-You'll receive emails when:
-- Someone assigns you as owner or tags you
-- Project status changes
-- Project moves to a different priority
-- Deliverable date is approaching (72 hours before)
-- Project is stuck (on hold or to-do for >72 hours)
+Use the left sidebar to:
+- **Quick Jump**: Click any project name to instantly scroll to that card
+- **Drag to Reorder**: Reorder projects within their priority level
+- **Visual Dividers**: See color-coded priority sections (P0-P4)
+- **Toggle View**: Use the arrows to show/hide the sidebar
 
 ## Need Help?
 

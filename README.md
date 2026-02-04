@@ -82,19 +82,29 @@ npm install
 - Follow the complete guide in `FIREBASE_SETUP.md`
 - Create a Firebase project
 - Enable Realtime Database
-- Copy your Firebase config to `/src/config/firebase.ts`
+- Copy `.env.example` to `.env` and fill in your Firebase credentials
 
-**3. Run Locally**
+**3. Configure Environment Variables**
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env with your Firebase credentials from Firebase Console
+# Get these from: Firebase Console → Project Settings → General → Your Apps
+```
+
+**4. Run Locally**
 ```bash
 npm run dev
 ```
 
-**4. Deploy**
+**5. Deploy**
 - Follow the guide in `DEPLOYMENT_GUIDE.md`
 - Recommended: Deploy to Vercel (easiest)
 - Alternative: Netlify, Firebase Hosting, or GitHub Pages
+- **Important**: Set environment variables in your hosting platform
 
-**5. Share with Team**
+**6. Share with Team**
 - Send the deployed URL to your team
 - Share `TEAM_QUICK_START.md` with them
 - They'll enter their name on first visit

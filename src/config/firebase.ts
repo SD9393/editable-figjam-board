@@ -1,16 +1,31 @@
-import { initializeApp } from "firebase/app";
+// DO NOT MODIFY — VERIFIED FIREBASE CONFIG (used by production)
+
+import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCknjodvT095K0M3ASxCEeeoChn9RBU1CQ",
-  authDomain: "realtime-board-ocd.firebaseapp.com",
-  databaseURL: "https://realtime-board-ocd-default-rtdb.firebaseio.com",
-  projectId: "realtime-board-ocd",
-  storageBucket: "realtime-board-ocd.firebasestorage.app",
-  messagingSenderId: "258036246275",
-  appId: "1:258036246275:web:a93405647e4013aef3eb36",
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
-const app = initializeApp(firebaseConfig);
+// Check if Firebase configuration is complete
+const isConfigured = firebaseConfig.apiKey && firebaseConfig.databaseURL && firebaseConfig.projectId;
 
-export const db = getDatabase(app);
+// Prevent duplicate Firebase initialization and handle missing config
+let app;
+let database;
+
+if (isConfigured) {
+  app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  database = getDatabase(app);
+} else {
+  console.warn('Firebase configuration is incomplete. Please set environment variables.');
+  database = null;
+}
+
+export const db = database;
