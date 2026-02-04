@@ -3,7 +3,6 @@ import { useDrag, useDrop } from 'react-dnd';
 import { GripVertical, Plus, X, Edit2, Check, Users, Calendar, Trash2, HelpCircle, ChevronLeft, ChevronRight, Package, Tag, Filter, Sun, Moon } from 'lucide-react';
 import { db } from '@/config/firebase';
 import { ref, set, onValue, update, onDisconnect, serverTimestamp, remove } from 'firebase/database';
-import IllAbstBackground from '../../imports/IllAbst000176-41-39.tsx';
 
 // ========================================
 // Oracle Redwood Design System Color Palette
@@ -2022,10 +2021,14 @@ export default function FigJamBoard() {
           className={`fixed inset-0 transition-all duration-300 ${
             isDarkTheme ? 'brightness-[0.3] contrast-[1.1] saturate-[0.7] hue-rotate-[10deg]' : 'brightness-100'
           }`}
-          style={{ zIndex: 0 }}
-        >
-          <IllAbstBackground />
-        </div>
+          style={{ 
+            zIndex: 0,
+            backgroundImage: 'url(https://images.unsplash.com/photo-1636837955417-2d8a4e49368f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMGJlaWdlJTIwZ2VvbWV0cmljJTIwbWluaW1hbCUyMHBhdHRlcm58ZW58MXx8fHwxNzcwMjEwNjY0fDA&ixlib=rb-4.1.0&q=80&w=1080)',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat'
+          }}
+        />
         
         {/* Content Overlay */}
         <div className="relative z-10">
