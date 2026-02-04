@@ -2052,6 +2052,31 @@ export default function FigJamBoard() {
               {(projects || []).length} projects • {(teammates || []).length} teammates
             </div>
             
+            {/* Restore Default Data Button (shows when all projects deleted) */}
+            {(projects || []).length === 0 && (
+              <button
+                onClick={() => {
+                  const projectsRef = ref(db, 'projects');
+                  set(projectsRef, initialProjects)
+                    .then(() => {
+                      console.log('✅ Restored default projects successfully');
+                    })
+                    .catch((error) => {
+                      console.error('❌ Error restoring default projects:', error);
+                    });
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:scale-105 ${
+                  isDarkTheme 
+                    ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                    : 'bg-orange-500 hover:bg-orange-600 text-white'
+                }`}
+                title="Restore all default projects"
+              >
+                <Package className="w-4 h-4" />
+                Restore Default Data
+              </button>
+            )}
+            
             {/* Online Users Display */}
             {Object.keys(onlineUsers).length > 0 && (
               <button
