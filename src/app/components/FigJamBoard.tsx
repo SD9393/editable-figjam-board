@@ -899,7 +899,9 @@ function EditableCard({
 // Helper function to remove undefined values from objects (Firebase doesn't allow undefined)
 function cleanFirebaseData<T>(data: T): T {
   if (Array.isArray(data)) {
-    return data.map(item => cleanFirebaseData(item)) as T;
+    const cleaned = data.map(item => cleanFirebaseData(item)) as T;
+    console.log('🧹 cleanFirebaseData array:', { inputLength: data.length, outputLength: (cleaned as any).length });
+    return cleaned;
   } else if (data !== null && typeof data === 'object') {
     const cleaned: any = {};
     Object.keys(data).forEach(key => {
@@ -1036,20 +1038,34 @@ export default function FigJamBoard() {
     const convertToArray = (data: any): any[] => {
       if (Array.isArray(data)) {
         console.log('✅ convertToArray: Data is already an array, length:', data.length);
-        return data;
+        // Filter out any null/undefined items that Firebase might inject
+        const filtered = data.filter(item => item !== null && item !== undefined);
+        if (filtered.length !== data.length) {
+          console.warn('⚠️ convertToArray: Filtered out', data.length - filtered.length, 'null/undefined items');
+        }
+        return filtered;
       } else if (data && typeof data === 'object') {
         // Firebase sometimes converts arrays to objects
         // Try to convert back to array
         const keys = Object.keys(data);
         console.log('🔄 convertToArray: Converting object to array, keys:', keys.length);
-        if (keys.every(key => !isNaN(Number(key)))) {
-          // If all keys are numbers, convert to array
-          const arr = Object.values(data);
+        
+        // Check if all keys are numeric (Firebase array-to-object conversion)
+        const isNumericKeys = keys.every(key => !isNaN(Number(key)));
+        
+        if (isNumericKeys && keys.length > 0) {
+          // Convert object with numeric keys back to array
+          // Sort by numeric key to preserve order
+          const arr = keys
+            .sort((a, b) => Number(a) - Number(b))
+            .map(key => data[key])
+            .filter(item => item !== null && item !== undefined);
           console.log('✅ convertToArray: Converted numeric-keyed object to array, length:', arr.length);
           return arr;
         }
-        // Otherwise, return as array with single object
-        console.log('⚠️ convertToArray: Non-numeric keys, wrapping in array');
+        
+        // If it's a single object (not an array representation), wrap it
+        console.log('⚠️ convertToArray: Non-numeric keys, treating as single object');
         return [data];
       }
       console.log('✅ convertToArray: Data is null/undefined, returning empty array');
@@ -1060,7 +1076,9 @@ export default function FigJamBoard() {
     const unsubscribeProjects = onValue(projectsRef, (snapshot) => {
       const data = snapshot.val();
       console.log('🔥 Firebase projects snapshot received:', data);
+      console.log('🔥 Data type:', typeof data, 'Is array?', Array.isArray(data));
       console.log('🔥 Data is null/undefined?', data === null || data === undefined);
+      
       if (data === null || data === undefined) {
         // Allow empty state - don't restore default data
         console.log('✅ Setting projects to empty array (no default restoration)');
@@ -1068,6 +1086,7 @@ export default function FigJamBoard() {
       } else {
         const projectsArray = convertToArray(data);
         console.log('✅ Setting projects from Firebase:', projectsArray.length, 'projects');
+        console.log('✅ Project IDs from Firebase:', projectsArray.map((p: any) => p.id));
         setProjects(projectsArray);
       }
       projectsLoaded = true;
@@ -1190,6 +1209,15 @@ export default function FigJamBoard() {
       hasFirebase: !!db
     });
     
+    // CRITICAL FIX: Always update local state IMMEDIATELY for instant UI response
+    // This prevents cards from disappearing while waiting for Firebase round-trip
+    if (localSetter) {
+      console.log(`💾 Updating local state immediately for path: "${path}"`, {
+        dataLength: Array.isArray(data) ? data.length : 'N/A'
+      });
+      localSetter(data);
+    }
+    
     if (db) {
       const cleanedData = cleanFirebaseData(data);
       console.log(`💾 Writing to Firebase path: "${path}"`, {
@@ -1198,9 +1226,6 @@ export default function FigJamBoard() {
       set(ref(db, path), cleanedData);
     } else {
       // When Firebase is not available, use localStorage
-      if (localSetter) {
-        localSetter(data);
-      }
       try {
         localStorage.setItem(path, JSON.stringify(data));
       } catch (error) {
@@ -1226,19 +1251,41 @@ export default function FigJamBoard() {
   const handleCardDrop = (cardId: string, newPriority: string, isCustom: boolean) => {
     console.log('🎯 handleCardDrop called:', { cardId, newPriority, isCustom });
     console.log('🎯 Current projects count:', (projects || []).length);
+    console.log('🎯 Current project IDs:', (projects || []).map(p => p.id));
+    console.log('🎯 Looking for card with ID:', cardId);
+    
+    const cardExists = (projects || []).find(p => p.id === cardId);
+    console.log('🎯 Card found?', cardExists ? 'YES' : 'NO', cardExists);
+    
     const updatedProjects = (projects || []).map((p) => {
       if (p.id === cardId) {
-        return {
-          ...p,
-          priority: newPriority,
-          category: isCustom ? newPriority : undefined,
-          lastModifiedBy: currentUser,
-          lastModifiedAt: Date.now()
-        };
+        console.log('🎯 Updating card:', p.id, 'from priority:', p.priority, 'category:', p.category, 'to:', newPriority, 'isCustom:', isCustom);
+        
+        // For custom rows: set both priority and category to the row name
+        // For standard priorities: set priority only, clear category
+        const updates = isCustom 
+          ? {
+              ...p,
+              priority: newPriority,    // Set priority to custom row name
+              category: newPriority,    // Set category to custom row name
+              lastModifiedBy: currentUser,
+              lastModifiedAt: Date.now()
+            }
+          : {
+              ...p,
+              priority: newPriority,   // Set priority for standard rows (P0-P4)
+              category: undefined,     // Clear category
+              lastModifiedBy: currentUser,
+              lastModifiedAt: Date.now()
+            };
+        
+        console.log('🎯 Updated card:', updates);
+        return updates;
       }
       return p;
     });
     console.log('🎯 Updated projects count after drop:', updatedProjects.length);
+    console.log('🎯 Updated project IDs:', updatedProjects.map(p => p.id));
     safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
@@ -1251,8 +1298,10 @@ export default function FigJamBoard() {
   };
 
   const handleAddNewCard = (priority: string, isCustom: boolean = false) => {
+    // Generate more unique ID to prevent collisions if multiple cards created rapidly
+    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newCard: ProjectCard = {
-      id: `${Date.now()}`,
+      id: uniqueId,
       lineNumber: (projects || []).length + 1,
       priority,
       projectName: 'New Project',
@@ -1266,7 +1315,15 @@ export default function FigJamBoard() {
       lastModifiedBy: currentUser,
       lastModifiedAt: Date.now()
     };
+    console.log('➕ Creating new card:', {
+      id: newCard.id,
+      priority: newCard.priority,
+      category: newCard.category,
+      lineNumber: newCard.lineNumber
+    });
     const updatedProjects = [...(projects || []), newCard];
+    console.log('➕ Total projects after adding:', updatedProjects.length);
+    console.log('➕ All project IDs:', updatedProjects.map(p => p.id));
     safeFirebaseSet('projects', updatedProjects, setProjects);
   };
 
