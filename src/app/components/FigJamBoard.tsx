@@ -3,7 +3,7 @@ import { useDrag, useDrop } from 'react-dnd';
 import { GripVertical, Plus, X, Edit2, Check, Users, Calendar, Trash2, HelpCircle, ChevronLeft, ChevronRight, Package, Tag, Filter, Sun, Moon } from 'lucide-react';
 import { db } from '@/config/firebase';
 import { ref, set, onValue, update, onDisconnect, serverTimestamp, remove } from 'firebase/database';
-import IllAbstBackground from '../../imports/IllAbst000176-41-39';
+import IllAbstBackground from '../../imports/IllAbst000176-41-39.tsx';
 
 // ========================================
 // Oracle Redwood Design System Color Palette
